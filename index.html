@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>رصد الغياب — مدرسة الشيخ عبدالله خياط المتوسطة</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="رصد الغياب">
+<meta name="theme-color" content="#0b6e67">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0b6e67; --ink2:#12a397; --paper:#ffffff; --bg:#f1f6f5; --line:#d4e4e1;
+  --muted:#5b726e; --head:#e6f4f2; --red:#c0392b; --redbg:#fbeceb; --amber:#b9770e; --amberbg:#fdf3e1;
+  --green:#1e7a4f; --greenbg:#e6f4ec;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:#1b2533;font-family:"Tajawal",Tahoma,Arial,sans-serif;font-size:16px;line-height:1.55}
+button,input,select,textarea{font-family:inherit;font-size:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid #f1b44c;outline-offset:2px}
+.hide{display:none!important}
+header.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:linear-gradient(135deg,#0a6660,#13a295);box-shadow:0 2px 0 #f0b429;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px}
+header.bar h1{font-family:"Tajawal",sans-serif;font-size:1.25rem;margin:0;flex:1;font-weight:700}
+header.bar small{display:block;font-family:"Tajawal";font-weight:400;font-size:.78rem;opacity:.8}
+.iconbtn{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:10px;padding:8px 12px}
+main{max-width:1100px;margin:0 auto;padding:16px}
+
+/* login */
+#login{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(160deg,#0a6660 0%,#13a295 60%,#8fd8ce 100%)}
+.loginbox{background:var(--paper);border-radius:18px;padding:28px 24px;border-top:5px solid #f0b429;box-shadow:0 18px 40px rgba(6,70,65,.25);width:100%;max-width:380px}
+.loginbox h1{font-family:"Tajawal",sans-serif;color:var(--ink);font-size:1.9rem;margin:0}
+.loginbox p{color:var(--muted);margin:4px 0 22px}
+label.f{display:block;font-weight:600;font-size:.9rem;margin:12px 0 6px}
+input.t,select.t,textarea.t{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+.btn{border:0;border-radius:10px;padding:12px 18px;font-weight:600;background:var(--ink);color:#fff}
+.btn.full{width:100%;margin-top:18px}
+.btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
+.btn.red{background:var(--red)}
+.btn.wa{background:#1f9d55}
+.btn.sm{padding:7px 12px;font-size:.88rem}
+.err{color:var(--red);font-size:.9rem;min-height:1.4em;margin-top:8px}
+
+/* class grid */
+.grade{margin:18px 0 8px;font-weight:700;color:var(--ink)}
+.classgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
+.classbtn{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:14px 6px;text-align:center;font-weight:700;font-size:1.3rem;color:var(--ink);position:relative}
+.classbtn small{display:block;font-size:.72rem;font-weight:500;color:var(--muted)}
+.classbtn.done{border-color:var(--green);background:var(--greenbg)}
+.classbtn.done::after{content:"✓";position:absolute;top:4px;left:8px;color:var(--green);font-size:.9rem}
+
+/* roll call — the paper register */
+.register{background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.reghead{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--head);border-bottom:2px solid var(--ink)}
+.reghead b{font-size:1.15rem;color:var(--ink)}
+.row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);min-height:58px;position:relative;user-select:none;-webkit-tap-highlight-color:transparent;background:repeating-linear-gradient(transparent 0 57px,transparent 57px 58px)}
+.row .n{width:26px;color:var(--muted);font-size:.85rem;text-align:center}
+.row .nm{flex:1;font-weight:500}
+.row .stamp{font-family:"Tajawal",sans-serif;font-weight:700;color:var(--red);border:2.5px solid var(--red);border-radius:8px;padding:0 10px;transform:rotate(-8deg) scale(.6);opacity:0;transition:transform .16s ease-out,opacity .16s}
+.row.abs{background:var(--redbg)}
+.row.abs .nm{color:#7a1f16}
+.row.abs .stamp{opacity:1;transform:rotate(-8deg) scale(1)}
+.row.late{background:var(--amberbg);cursor:not-allowed}
+.row.late .tag{color:var(--amber);font-size:.8rem;font-weight:600}
+@media (prefers-reduced-motion:reduce){.row .stamp{transition:none}}
+.sticky-foot{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:18px 0 calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:10px}
+.sticky-foot .btn{flex:1;padding:15px}
+
+/* admin */
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
+.tabs button{border:0;background:#fff;color:var(--ink);border-radius:999px;padding:9px 16px;font-weight:600;white-space:nowrap;border:1.5px solid var(--line)}
+.tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.toolbar input[type=date]{padding:9px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+.hijri{color:var(--muted);font-size:.9rem}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:16px}
+.summary div{background:var(--paper);padding:14px 16px}
+.summary b{display:block;font-size:1.7rem;color:var(--ink);line-height:1.2}
+.summary span{color:var(--muted);font-size:.85rem}
+.summary .r b{color:var(--red)}
+.progress{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 14px}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,#0b6e67,#13a295)}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px}
+.panel h2{font-size:1.05rem;margin:0 0 10px;color:var(--ink);padding-right:10px;border-right:4px solid var(--ink2)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.93rem}
+th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{color:var(--ink);font-weight:700;font-size:.84rem;background:var(--head)}
+td.abs{color:var(--red);font-weight:700}
+td.late{color:var(--amber);font-weight:600}
+.pill{display:inline-block;border-radius:99px;padding:1px 10px;font-size:.8rem;font-weight:600}
+.pill.no{background:#eef1f5;color:var(--muted)}
+.pill.ok{background:var(--greenbg);color:var(--green)}
+.pill.t3{background:#fff4d6;color:#8a6200}.pill.t5{background:#ffe6cc;color:#a34f00}
+.pill.t10{background:#fbdcd8;color:#a0271a}.pill.t15{background:#7a1f16;color:#fff}
+.pill.new{background:var(--red);color:#fff}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chips button{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:6px 14px;font-weight:600;color:var(--ink)}
+.chips button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sent{color:var(--green);font-weight:600;font-size:.85rem}
+.empty{color:var(--muted);text-align:center;padding:26px}
+.note{font-size:.85rem;color:var(--muted)}
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#1b2533;color:#fff;padding:11px 20px;border-radius:12px;z-index:50;font-weight:500;max-width:90vw}
+.loading{padding:40px;text-align:center;color:var(--muted)}
+
+/* print report */
+#report{display:none}
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff}
+  body>*:not(#report){display:none!important}
+  #report{display:block;font-size:11pt;color:#000}
+  #report h1{font-family:"Tajawal",sans-serif;font-size:17pt;margin:0}
+  #report .rh{display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px}
+  #report table{font-size:10pt}
+  #report th{background:#eee}
+  #report th,#report td{border:1px solid #999;padding:4px 6px;white-space:normal}
+  #report h3{margin:14px 0 6px;font-size:12pt;break-after:avoid}
+  #report .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #report .cls{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="login">
+  <div class="loginbox">
+    <h1>رصد الغياب</h1>
+    <p>مدرسة الشيخ عبدالله خياط المتوسطة</p>
+    <label class="f" for="uname">اسم المعلم</label>
+    <input class="t" id="uname" autocomplete="name" placeholder="مثال: أنمار فلمبان">
+    <label class="f" for="upass">الرمز</label>
+    <input class="t" id="upass" type="password" inputmode="numeric" placeholder="••••">
+    <button class="btn full" id="loginBtn">دخول</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</section>
+
+<!-- ============ TEACHER ============ -->
+<section id="teacher" class="hide">
+  <header class="bar">
+    <button class="iconbtn hide" id="tBack" aria-label="رجوع">→</button>
+    <h1 id="tTitle">اختر الفصل<small id="tSub"></small></h1>
+    <button class="iconbtn" data-logout>خروج</button>
+  </header>
+  <main>
+    <div id="tClasses"></div>
+    <div id="tRoll" class="hide"></div>
+  </main>
+</section>
+
+<!-- ============ ADMIN ============ -->
+<section id="admin" class="hide">
+  <header class="bar">
+    <h1>لوحة الغياب<small>مدرسة الشيخ عبدالله خياط المتوسطة</small></h1>
+    <button class="iconbtn" id="toTeacher">رصد فصل</button>
+    <button class="iconbtn" data-logout>خروج</button>
+  </header>
+  <main>
+    <div class="toolbar">
+      <input type="date" id="aDate" aria-label="التاريخ">
+      <span class="hijri" id="aHijri"></span>
+      <span style="flex:1"></span>
+      <button class="btn ghost sm" id="refreshBtn">تحديث</button>
+      <button class="btn sm" id="printBtn">التقرير اليومي PDF</button>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button data-tab="today" class="on">إحصائية اليوم</button>
+      <button data-tab="sheet">كشف الفصول</button>
+      <button data-tab="msgs">إرسال لأولياء الأمور</button>
+      <button data-tab="alerts">تنبيهات التراكم</button>
+    </nav>
+    <div id="aBody"><div class="loading">جاري التحميل…</div></div>
+  </main>
+</section>
+
+<div id="report"></div>
+<div id="toast" class="toast hide"></div>
+
+<script>
+/* ================= CONFIG ================= */
+const SB  = 'https://hqppacntsggeyxfkobjn.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhxcHBhY250c2dnZXl4ZmtvYmpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5Mjg1NjYsImV4cCI6MjA5MDUwNDU2Nn0.i2kNNTgI7JgJ7bN1Sudie543s_84YYDuPc9rqbSoXJY';
+const TEACHER_PASS = '1010';   // رمز المعلمين
+const ADMIN_PASS   = '2030';   // رمز الإدارة (لوحة التحكم)
+const SCHOOL = 'مدرسة الشيخ عبدالله خياط المتوسطة';
+const GRADES = ['الأول متوسط','الثاني متوسط','الثالث متوسط'];
+const THRESHOLDS = [3,5,10,15];
+const DAYS = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const DEFAULT_MSG = 'ولي أمر الطالب {الاسم}\nنفيدكم بغياب ابنكم اليوم {اليوم} {التاريخ}.\nنأمل تزويد المدرسة بالعذر.\n' + SCHOOL;
+const DEFAULT_ALERT = 'ولي أمر الطالب {الاسم}\nنحيطكم علماً بأن غياب ابنكم بلغ {العدد} أيام، ونأمل مراجعة المدرسة.\n' + SCHOOL;
+
+/* ================= HELPERS ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ls = { get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:v }catch(e){ return d } },
+             set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} },
+             del(k){ try{ localStorage.removeItem(k) }catch(e){} } };
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.remove('hide'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.add('hide'),2600) }
+function todayRiyadh(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'}) }
+function dayName(d){ return DAYS[new Date(d+'T12:00:00').getDay()] }
+function hijri(d){ try{ return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn',{day:'numeric',month:'long',year:'numeric'}).format(new Date(d+'T12:00:00')) }catch(e){ return d } }
+function intlPhone(p){
+  let s = String(p||'').replace(/\D/g,'');
+  if (s.startsWith('00')) s = s.slice(2);
+  if (s.startsWith('05') && s.length===10) s = '966'+s.slice(1);
+  else if (s.startsWith('5') && s.length===9) s = '966'+s;
+  return s;
+}
+function fillMsg(tpl, st, d, n){
+  return tpl.replaceAll('{الاسم}', st.student_name).replaceAll('{الفصل}', st.class||'')
+    .replaceAll('{اليوم}', dayName(d)).replaceAll('{التاريخ}', hijri(d)).replaceAll('{العدد}', n??'');
+}
+function tier(n){ return n>=15?15 : n>=10?10 : n>=5?5 : n>=3?3 : 0 }
+function sortClasses(a,b){ const [ga,sa]=a.split(' - '), [gb,sb]=b.split(' - '); return GRADES.indexOf(ga)-GRADES.indexOf(gb) || (+sa)-(+sb) }
+
+/* ================= API ================= */
+async function api(path,{method='GET',body,prefer,range}={}){
+  const h={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+  if(prefer) h.Prefer=prefer;
+  if(range){ h['Range-Unit']='items'; h.Range=range }
+  const r = await fetch(SB+'/rest/v1/'+path,{method,headers:h,body:body?JSON.stringify(body):undefined});
+  if(!r.ok) throw new Error(await r.text()||('HTTP '+r.status));
+  const t = await r.text(); return t?JSON.parse(t):null;
+}
+async function getAll(path){
+  let out=[], from=0;
+  while(true){ const part = await api(path,{range:`${from}-${from+999}`}); out=out.concat(part||[]); if(!part||part.length<1000) break; from+=1000 }
+  return out;
+}
+let ROSTER=null;
+async function roster(){
+  if(ROSTER) return ROSTER;
+  const rows = await getAll('khyat_students?select=student_id,student_name,class_label,guardian_mobile&order=student_name');
+  ROSTER = { list: rows, byClass:{}, byId:{} };
+  rows.forEach(r=>{ (ROSTER.byClass[r.class_label] ||= []).push(r); ROSTER.byId[r.student_id]=r });
+  ROSTER.classes = Object.keys(ROSTER.byClass).sort(sortClasses);
+  return ROSTER;
+}
+
+/* ================= AUTH ================= */
+let ROLE=null, USER='';
+function show(id){ ['login','teacher','admin'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id)); window.scrollTo(0,0) }
+$('#uname').value = ls.get('abs_user','');
+$('#loginBtn').onclick = login;
+$('#upass').addEventListener('keydown',e=>{ if(e.key==='Enter') login() });
+function login(){
+  const n=$('#uname').value.trim(), p=$('#upass').value.trim();
+  if(!n){ $('#loginErr').textContent='اكتب اسمك أولاً، يظهر في سجل الرصد.'; return }
+  if(p===ADMIN_PASS) ROLE='admin'; else if(p===TEACHER_PASS) ROLE='teacher';
+  else { $('#loginErr').textContent='الرمز غير صحيح.'; return }
+  USER=n; ls.set('abs_user',n); ls.set('abs_role',ROLE); $('#loginErr').textContent='';
+  start();
+}
+document.querySelectorAll('[data-logout]').forEach(b=>b.onclick=()=>{ ls.del('abs_role'); ROLE=null; $('#upass').value=''; show('login') });
+function start(){ if(ROLE==='admin'){ show('admin'); initAdmin() } else { show('teacher'); openClasses() } }
+(function(){ const r=ls.get('abs_role',null), u=ls.get('abs_user',''); if(r&&u){ ROLE=r; USER=u; start() } })();
+
+/* ================= TEACHER ================= */
+$('#tBack').onclick = openClasses;
+async function openClasses(){
+  $('#tBack').classList.add('hide'); $('#tRoll').classList.add('hide');
+  const box=$('#tClasses'); box.classList.remove('hide');
+  const d=todayRiyadh();
+  $('#tTitle').firstChild.nodeValue='اختر الفصل';
+  $('#tSub').textContent=`${dayName(d)} ${hijri(d)}`;
+  box.innerHTML='<div class="loading">جاري تحميل الفصول…</div>';
+  try{
+    const [R, subs] = await Promise.all([roster(), api(`absence_submissions?vdate=eq.${d}&select=class,absent_count`)]);
+    const done = Object.fromEntries(subs.map(s=>[s.class,s.absent_count]));
+    let html='';
+    GRADES.forEach(g=>{
+      const cls=R.classes.filter(c=>c.startsWith(g)); if(!cls.length) return;
+      html+=`<div class="grade">${g}</div><div class="classgrid">`;
+      cls.forEach(c=>{ const sec=c.split(' - ')[1], isD=c in done;
+        html+=`<button class="classbtn ${isD?'done':''}" data-c="${esc(c)}">${sec}<small>${isD?('غياب '+done[c]):(R.byClass[c].length+' طالب')}</small></button>` });
+      html+='</div>';
+    });
+    if(ROLE==='admin') html+=`<p style="margin-top:20px"><button class="btn ghost" onclick="show('admin');loadAdmin()">العودة للوحة الغياب</button></p>`;
+    box.innerHTML=html;
+    box.querySelectorAll('.classbtn').forEach(b=>b.onclick=()=>openRoll(b.dataset.c));
+  }catch(e){ box.innerHTML=`<div class="empty">تعذّر الاتصال بقاعدة البيانات. تأكد من الإنترنت ثم أعد المحاولة.<br><small>${esc(e.message)}</small></div>` }
+}
+
+async function openRoll(cls){
+  const d=todayRiyadh(), box=$('#tRoll');
+  $('#tClasses').classList.add('hide'); box.classList.remove('hide'); $('#tBack').classList.remove('hide');
+  $('#tTitle').firstChild.nodeValue=cls; window.scrollTo(0,0);
+  box.innerHTML='<div class="loading">جاري تحميل الأسماء…</div>';
+  try{
+    const R=await roster();
+    const [existing, late] = await Promise.all([
+      api(`absences?vdate=eq.${d}&class=eq.${encodeURIComponent(cls)}&select=student_id`),
+      api(`late_arrivals?vdate=eq.${d}&class=eq.${encodeURIComponent(cls)}&select=student_id`)
+    ]);
+    const absSet=new Set(existing.map(x=>x.student_id)), lateSet=new Set(late.map(x=>x.student_id));
+    const studs=R.byClass[cls]||[];
+    let html=`<div class="register"><div class="reghead"><b>${esc(cls)}</b><span id="absCount" class="note"></span></div>`;
+    studs.forEach((s,i)=>{
+      const isL=lateSet.has(s.student_id), isA=!isL && absSet.has(s.student_id);
+      html+=`<div class="row ${isA?'abs':''} ${isL?'late':''}" data-id="${esc(s.student_id)}" role="checkbox" aria-checked="${isA}" tabindex="0">
+        <span class="n">${i+1}</span><span class="nm">${esc(s.student_name)}</span>
+        ${isL?'<span class="tag">متأخر اليوم</span>':'<span class="stamp">غائب</span>'}</div>`;
+    });
+    html+=`</div><p class="note">اضغط على اسم الطالب الغائب. الطالب المسجّل في التأخر الصباحي لا يُحسب غائباً.</p>
+      <div class="sticky-foot"><button class="btn" id="submitRoll">اعتماد الغياب</button></div>`;
+    box.innerHTML=html;
+    const count=()=>{ const n=box.querySelectorAll('.row.abs').length; $('#absCount').textContent= n?`الغائبون: ${n}`:`لا يوجد غياب — ${studs.length} طالب` };
+    count();
+    box.querySelectorAll('.row:not(.late)').forEach(r=>{
+      const tg=()=>{ r.classList.toggle('abs'); r.setAttribute('aria-checked',r.classList.contains('abs')); if(navigator.vibrate) navigator.vibrate(12); count() };
+      r.onclick=tg; r.onkeydown=e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); tg() } };
+    });
+    $('#submitRoll').onclick=()=>submitRoll(cls,d,studs);
+  }catch(e){ box.innerHTML=`<div class="empty">تعذّر التحميل: ${esc(e.message)}</div>` }
+}
+
+async function submitRoll(cls,d,studs){
+  const btn=$('#submitRoll'); btn.disabled=true; btn.textContent='جاري الإرسال…';
+  const ids=[...document.querySelectorAll('#tRoll .row.abs')].map(r=>r.dataset.id);
+  const vday=dayName(d);
+  try{
+    // remove absences in this class that were un-ticked
+    const keep = ids.length ? `&student_id=not.in.(${ids.map(i=>'"'+i+'"').join(',')})` : '';
+    await api(`absences?vdate=eq.${d}&class=eq.${encodeURIComponent(cls)}${keep}`,{method:'DELETE'});
+    if(ids.length){
+      const rows=ids.map(id=>{ const s=studs.find(x=>x.student_id===id);
+        return {student_id:id, student_name:s.student_name, class:cls, vdate:d, vday, guardian_mobile:s.guardian_mobile, entered_by:USER} });
+      await api('absences?on_conflict=student_id,vdate',{method:'POST',body:rows,prefer:'resolution=ignore-duplicates,return=minimal'});
+    }
+    await api('absence_submissions?on_conflict=class,vdate',{method:'POST',prefer:'resolution=merge-duplicates,return=minimal',
+      body:[{class:cls,vdate:d,absent_count:ids.length,entered_by:USER,submitted_at:new Date().toISOString()}]});
+    toast(ids.length?`تم اعتماد غياب ${ids.length} طالب في ${cls}`:`تم اعتماد ${cls}: لا يوجد غياب`);
+    openClasses();
+  }catch(e){ btn.disabled=false; btn.textContent='اعتماد الغياب'; toast('لم يُرسل الغياب: '+e.message) }
+}
+
+/* ================= ADMIN ================= */
+let TAB='today', DATA=null, TOTALS=null, alertFilter=0, hideSent=true, autoT=null;
+$('#toTeacher').onclick=()=>{ show('teacher'); openClasses() };
+function initAdmin(){
+  $('#aDate').value=todayRiyadh();
+  $('#aDate').onchange=loadAdmin; $('#refreshBtn').onclick=loadAdmin; $('#printBtn').onclick=printReport;
+  document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+    TAB=b.dataset.tab; document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b)); render() });
+  loadAdmin();
+  clearInterval(autoT); autoT=setInterval(()=>{ if(ROLE==='admin' && !$('#admin').classList.contains('hide') && TAB==='today') loadAdmin(true) },45000);
+}
+async function loadAdmin(silent){
+  const d=$('#aDate').value; $('#aHijri').textContent=`${dayName(d)} — ${hijri(d)}`;
+  if(!silent) $('#aBody').innerHTML='<div class="loading">جاري التحميل…</div>';
+  try{
+    const [R, subs, abs, late, totals] = await Promise.all([
+      roster(),
+      api(`absence_submissions?vdate=eq.${d}&select=*`),
+      getAll(`absences?vdate=eq.${d}&select=*&order=class,student_name`),
+      getAll(`late_arrivals?vdate=eq.${d}&select=student_id`),
+      getAll('absence_totals?select=*&total_days=gte.3&order=total_days.desc')
+    ]);
+    const lateSet=new Set(late.map(x=>x.student_id));
+    const eff=abs.filter(a=>!lateSet.has(a.student_id)), conv=abs.filter(a=>lateSet.has(a.student_id));
+    const subMap=Object.fromEntries(subs.map(s=>[s.class,s]));
+    TOTALS=totals; const totMap=Object.fromEntries(totals.map(t=>[t.student_id,t.total_days]));
+    const perClass=R.classes.map(c=>{ const n=R.byClass[c].length, a=eff.filter(x=>x.class===c).length;
+      return {c,n,a,sub:subMap[c],rate:n?a/n*100:0} });
+    DATA={d,R,subs,subMap,abs,eff,conv,lateSet,perClass,totMap};
+    render();
+  }catch(e){ $('#aBody').innerHTML=`<div class="empty">تعذّر تحميل البيانات: ${esc(e.message)}</div>` }
+}
+function render(){
+  if(!DATA) return;
+  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts})[TAB]();
+}
+function stats(){
+  const {perClass,eff,conv}=DATA; const sub=perClass.filter(p=>p.sub);
+  const students=sub.reduce((a,p)=>a+p.n,0);
+  return {done:sub.length, total:perClass.length, students, absent:eff.length, conv:conv.length, rate:students?(eff.length/students*100):0};
+}
+function renderToday(){
+  const s=stats(), {perClass}=DATA;
+  const pending=perClass.filter(p=>!p.sub).map(p=>p.c);
+  let h=`<div class="summary">
+    <div><b>${s.done} / ${s.total}</b><span>فصول تم رصدها</span></div>
+    <div class="r"><b>${s.absent}</b><span>طالب غائب</span></div>
+    <div><b>${s.rate.toFixed(1)}٪</b><span>نسبة الغياب في الفصول المرصودة</span></div>
+    <div><b>${s.conv}</b><span>غياب أُلغي لأن الطالب حضر متأخراً</span></div></div>
+    <div class="progress"><i style="width:${s.total?s.done/s.total*100:0}%"></i></div>`;
+  if(pending.length) h+=`<div class="panel"><h2>فصول لم تُرصد بعد (${pending.length})</h2><div class="chips">${pending.map(c=>`<span class="pill no">${esc(c)}</span>`).join('')}</div></div>`;
+  else h+=`<div class="panel"><h2>اكتمل رصد جميع الفصول ✓</h2><p class="note" style="margin:0">الإحصائية العامة نهائية لهذا اليوم، ويمكن طباعة التقرير أو إرسال الرسائل.</p></div>`;
+  // per grade
+  h+=`<div class="panel"><h2>الغياب حسب الصف</h2><div class="tbl-wrap"><table><tr><th>الصف</th><th>عدد الطلاب</th><th>الغائبون</th><th>النسبة</th></tr>`;
+  GRADES.forEach(g=>{ const ps=perClass.filter(p=>p.c.startsWith(g)&&p.sub); const n=ps.reduce((a,p)=>a+p.n,0), a=ps.reduce((x,p)=>x+p.a,0);
+    h+=`<tr><td>${g}</td><td>${n}</td><td class="${a?'abs':''}">${a}</td><td>${n?(a/n*100).toFixed(1)+'٪':'—'}</td></tr>` });
+  h+=`</table></div></div>`;
+  h+=`<div class="panel"><h2>الغياب حسب الفصل</h2><div class="tbl-wrap"><table><tr><th>الفصل</th><th>الطلاب</th><th>الغائبون</th><th>النسبة</th><th>الحالة</th><th>الراصد</th></tr>`;
+  [...perClass].sort((a,b)=>b.rate-a.rate||sortClasses(a.c,b.c)).forEach(p=>{
+    h+=`<tr><td>${esc(p.c)}</td><td>${p.n}</td><td class="${p.a?'abs':''}">${p.sub?p.a:'—'}</td><td>${p.sub?p.rate.toFixed(1)+'٪':'—'}</td>
+      <td>${p.sub?'<span class="pill ok">تم الرصد</span>':'<span class="pill no">لم يُرصد</span>'}</td><td class="note">${esc(p.sub?.entered_by||'')}</td></tr>` });
+  h+=`</table></div></div>`;
+  $('#aBody').innerHTML=h;
+}
+let sheetClass=null;
+function renderSheet(){
+  const {R,eff,conv,subMap,totMap}=DATA; sheetClass ||= R.classes[0];
+  const effSet=new Set(eff.map(a=>a.student_id)), convSet=new Set(conv.map(a=>a.student_id));
+  const all = sheetClass==='*' ? R.classes : [sheetClass];
+  let h=`<div class="toolbar"><select class="t" id="shSel" style="max-width:260px"><option value="*">كل الفصول</option>${R.classes.map(c=>`<option ${c===sheetClass?'selected':''}>${esc(c)}</option>`).join('')}</select></div>`;
+  all.forEach(c=>{
+    const sub=subMap[c];
+    h+=`<div class="panel"><h2>${esc(c)} ${sub?`<span class="pill ok">رصده ${esc(sub.entered_by||'')}</span>`:'<span class="pill no">لم يُرصد بعد</span>'}</h2>
+      <div class="tbl-wrap"><table><tr><th>م</th><th>اسم الطالب</th><th>الحالة</th><th>إجمالي أيام الغياب</th></tr>`;
+    R.byClass[c].forEach((s,i)=>{
+      const st= effSet.has(s.student_id)?'<td class="abs">غائب</td>' : convSet.has(s.student_id)?'<td class="late">حضر متأخراً</td>' : '<td></td>';
+      const t=totMap[s.student_id]; h+=`<tr><td>${i+1}</td><td>${esc(s.student_name)}</td>${st}<td>${t?`<span class="pill t${tier(t)}">${t}</span>`:''}</td></tr>` });
+    h+=`</table></div></div>`;
+  });
+  $('#aBody').innerHTML=h;
+  $('#shSel').onchange=e=>{ sheetClass=e.target.value; renderSheet() };
+}
+function renderMsgs(){
+  const {eff,d,totMap}=DATA; const tpl=ls.get('abs_tpl',DEFAULT_MSG);
+  const list=eff.filter(a=>!hideSent || !(a.wa_sent||a.sms_sent));
+  let h=`<div class="panel"><h2>نص الرسالة</h2>
+    <textarea class="t" id="tpl" rows="4">${esc(tpl)}</textarea>
+    <p class="note">المتغيرات: {الاسم} {الفصل} {اليوم} {التاريخ}. الرسالة القصيرة بالعربي تُحسب 70 حرفاً للرسالة الواحدة في SMS، فاختصارها يوفر الرصيد.</p>
+    <div class="toolbar" style="margin:0"><button class="btn ghost sm" id="tplReset">استعادة النص الافتراضي</button></div></div>
+    <div class="panel"><h2>المدار التقني (رسائل SMS)</h2>
+    <p class="note">حمّل ملف الأرقام والرسائل ثم ارفعه في لوحة الإرسال الجماعي في حسابكم بالمدار، أو انسخ الأرقام مباشرة. بعد الإرسال اضغط "تم الإرسال عبر المدار" لتوثيقه.</p>
+    <div class="toolbar" style="margin:0"><button class="btn sm" id="csvBtn">تنزيل ملف المدار (CSV)</button>
+    <button class="btn ghost sm" id="copyNums">نسخ الأرقام</button><button class="btn ghost sm" id="markSms">تم الإرسال عبر المدار</button></div></div>
+    <div class="panel"><h2>واتساب — ${eff.length} غائب</h2>
+    <label class="note"><input type="checkbox" id="hideSent" ${hideSent?'checked':''}> إخفاء من تم إرسال رسالته</label>
+    <div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>الجوال</th><th>مجموع الغياب</th><th></th></tr>`;
+  if(!list.length) h+=`<tr><td colspan="5" class="empty">${eff.length?'تم إرسال جميع الرسائل.':'لا يوجد غياب مسجّل لهذا اليوم.'}</td></tr>`;
+  list.forEach(a=>{ const t=totMap[a.student_id];
+    h+=`<tr><td>${esc(a.student_name)}</td><td>${esc(a.class)}</td><td dir="ltr">${esc(a.guardian_mobile||'—')}</td>
+      <td>${t?`<span class="pill t${tier(t)}">${t}</span>`:'1–2'}</td>
+      <td>${a.guardian_mobile?`<button class="btn wa sm" data-wa="${a.id}">واتساب</button>`:''} ${a.wa_sent?'<span class="sent">✓ واتساب</span>':''} ${a.sms_sent?'<span class="sent">✓ SMS</span>':''}</td></tr>` });
+  h+=`</table></div></div>`;
+  $('#aBody').innerHTML=h;
+  $('#tpl').oninput=e=>ls.set('abs_tpl',e.target.value);
+  $('#tplReset').onclick=()=>{ ls.del('abs_tpl'); renderMsgs() };
+  $('#hideSent').onchange=e=>{ hideSent=e.target.checked; renderMsgs() };
+  document.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{
+    const a=eff.find(x=>x.id==b.dataset.wa); const msg=fillMsg($('#tpl').value,a,d);
+    window.open(`https://wa.me/${intlPhone(a.guardian_mobile)}?text=${encodeURIComponent(msg)}`,'_blank');
+    a.wa_sent=true; api(`absences?id=eq.${a.id}`,{method:'PATCH',body:{wa_sent:true},prefer:'return=minimal'}).catch(()=>{});
+    setTimeout(renderMsgs,400);
+  });
+  $('#csvBtn').onclick=()=>{
+    const tp=$('#tpl').value, rows=eff.filter(a=>a.guardian_mobile);
+    const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+    const csv='\ufeff'+'رقم الجوال,اسم الطالب,الفصل,الرسالة\n'+rows.map(a=>[intlPhone(a.guardian_mobile),a.student_name,a.class,fillMsg(tp,a,d)].map(q).join(',')).join('\n');
+    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+    const l=document.createElement('a'); l.href=url; l.download=`غياب-${d}.csv`; document.body.appendChild(l); l.click(); l.remove();
+    toast(`تم تجهيز ${rows.length} رقم`);
+  };
+  $('#copyNums').onclick=async()=>{ const nums=[...new Set(eff.map(a=>intlPhone(a.guardian_mobile)).filter(Boolean))].join('\n');
+    try{ await navigator.clipboard.writeText(nums); toast(`تم نسخ ${nums.split('\n').length} رقم`) }catch(e){ prompt('انسخ الأرقام:',nums) } };
+  $('#markSms').onclick=async()=>{ const ids=eff.map(a=>a.id); if(!ids.length) return;
+    if(!confirm(`توثيق إرسال SMS لـ ${ids.length} ولي أمر؟`)) return;
+    try{ await api(`absences?id=in.(${ids.join(',')})`,{method:'PATCH',body:{sms_sent:true},prefer:'return=minimal'}); eff.forEach(a=>a.sms_sent=true); toast('تم التوثيق'); renderMsgs() }
+    catch(e){ toast('تعذّر التوثيق: '+e.message) } };
+}
+function renderAlerts(){
+  const {d}=DATA; const tpl=ls.get('abs_alert_tpl',DEFAULT_ALERT);
+  const list=TOTALS.filter(t=>!alertFilter || tier(t.total_days)===alertFilter);
+  const cnt=v=>TOTALS.filter(t=>tier(t.total_days)===v).length;
+  const fresh=TOTALS.filter(t=>t.last_date===d && THRESHOLDS.includes(t.total_days));
+  let h=`<div class="summary">${THRESHOLDS.map(v=>`<div><b>${cnt(v)}</b><span>${v===15?'15 يوماً فأكثر':`${v} أيام إلى ${[5,10,15][THRESHOLDS.indexOf(v)]-1}`}</span></div>`).join('')}
+    <div class="r"><b>${fresh.length}</b><span>بلغوا حداً جديداً في هذا اليوم</span></div></div>
+    <div class="chips"><button data-f="0" class="${!alertFilter?'on':''}">الكل (${TOTALS.length})</button>${THRESHOLDS.map(v=>`<button data-f="${v}" class="${alertFilter===v?'on':''}">${v}+</button>`).join('')}</div>
+    <div class="panel"><h2>نص رسالة التنبيه</h2><textarea class="t" id="atpl" rows="3">${esc(tpl)}</textarea><p class="note">المتغيرات: {الاسم} {الفصل} {العدد}</p></div>
+    <div class="panel"><div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>أيام الغياب</th><th>آخر غياب</th><th></th></tr>`;
+  if(!list.length) h+=`<tr><td colspan="5" class="empty">لا يوجد طلاب في هذه الفئة.</td></tr>`;
+  list.forEach(t=>{ const isNew=t.last_date===d && THRESHOLDS.includes(t.total_days);
+    h+=`<tr><td>${esc(t.student_name)} ${isNew?'<span class="pill new">جديد</span>':''}</td><td>${esc(t.class)}</td>
+      <td><span class="pill t${tier(t.total_days)}">${t.total_days}</span></td><td class="note">${esc(t.last_date)}</td>
+      <td>${t.guardian_mobile?`<button class="btn wa sm" data-al="${esc(t.student_id)}">إبلاغ ولي الأمر</button>`:''}</td></tr>` });
+  h+=`</table></div></div><p class="note">الإجمالي يُحسب من بداية استخدام التطبيق، ولا يشمل الأيام التي سُجّل فيها الطالب متأخراً.</p>`;
+  $('#aBody').innerHTML=h;
+  document.querySelectorAll('.chips [data-f]').forEach(b=>b.onclick=()=>{ alertFilter=+b.dataset.f; renderAlerts() });
+  $('#atpl').oninput=e=>ls.set('abs_alert_tpl',e.target.value);
+  document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{
+    const t=TOTALS.find(x=>x.student_id===b.dataset.al);
+    window.open(`https://wa.me/${intlPhone(t.guardian_mobile)}?text=${encodeURIComponent(fillMsg($('#atpl').value,t,d,t.total_days))}`,'_blank') });
+}
+
+/* ================= PRINT REPORT ================= */
+function printReport(){
+  if(!DATA){ toast('انتظر تحميل البيانات'); return }
+  const s=stats(), {d,perClass,eff,R}=DATA;
+  const fresh=TOTALS.filter(t=>t.last_date===d && THRESHOLDS.includes(t.total_days));
+  let h=`<div class="rh"><div><h1>تقرير الغياب اليومي</h1>${SCHOOL}</div><div style="text-align:left">${dayName(d)}<br>${hijri(d)}<br>${d}</div></div>
+    <table><tr><th>الفصول المرصودة</th><th>عدد الطلاب</th><th>الغائبون</th><th>نسبة الغياب</th><th>غياب أُلغي بسبب التأخر</th></tr>
+    <tr><td>${s.done} من ${s.total}</td><td>${s.students}</td><td>${s.absent}</td><td>${s.rate.toFixed(1)}٪</td><td>${s.conv}</td></tr></table>
+    <h3>الغياب حسب الفصل</h3><table><tr><th>الفصل</th><th>الطلاب</th><th>الغائبون</th><th>النسبة</th><th>الراصد</th></tr>
+    ${perClass.map(p=>`<tr><td>${p.c}</td><td>${p.n}</td><td>${p.sub?p.a:'لم يُرصد'}</td><td>${p.sub?p.rate.toFixed(1)+'٪':''}</td><td>${esc(p.sub?.entered_by||'')}</td></tr>`).join('')}</table>
+    <h3>أسماء الغائبين</h3><div class="grid2">`;
+  R.classes.forEach(c=>{ const a=eff.filter(x=>x.class===c); if(!a.length) return;
+    h+=`<div class="cls"><table><tr><th colspan="3">${c} — ${a.length}</th></tr>${a.map((x,i)=>`<tr><td style="width:24px">${i+1}</td><td>${esc(x.student_name)}</td><td style="width:40px">${DATA.totMap[x.student_id]||''}</td></tr>`).join('')}</table></div>` });
+  h+=`</div>`;
+  if(fresh.length) h+=`<h3>طلاب بلغوا حداً جديداً اليوم</h3><table><tr><th>الطالب</th><th>الفصل</th><th>أيام الغياب</th></tr>${fresh.map(t=>`<tr><td>${esc(t.student_name)}</td><td>${esc(t.class)}</td><td>${t.total_days}</td></tr>`).join('')}</table>`;
+  h+=`<p style="margin-top:24px">وكيل شؤون الطلاب: ........................ &nbsp;&nbsp;&nbsp; مدير المدرسة: ........................</p>`;
+  $('#report').innerHTML=h; setTimeout(()=>window.print(),150);
+}
+</script>
+</body>
+</html>
