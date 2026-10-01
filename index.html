@@ -816,14 +816,15 @@ function weekOf(d){ const dow=new Date(d+'T12:00:00Z').getUTCDay(); const s=addD
 async function renderRemote(){
   const d=DATA.d, R=DATA.R, [ws,we]=weekOf(d);
   $('#aBody').innerHTML='<div class="loading">جاري التحميل…</div>';
-  let day,sess,wk,teachers,wsess;
+  let day,sess,wk,teachers,wsess,codeRow;
   try{
-    [day,sess,wk,teachers,wsess]=await Promise.all([
+    [day,sess,wk,teachers,wsess,codeRow]=await Promise.all([
       api(`remote_days?vdate=eq.${d}&select=vdate`),
       api(`remote_sessions?vdate=eq.${d}&select=*`),
       getAll(`remote_attendance?vdate=gte.${ws}&vdate=lte.${we}&select=student_id,student_name,class,vdate,period,status,guardian_mobile`),
       api('remote_teachers?select=*&order=name'),
-      getAll(`remote_sessions?vdate=gte.${ws}&vdate=lte.${we}&select=vdate,class,period`)]);
+      getAll(`remote_sessions?vdate=gte.${ws}&vdate=lte.${we}&select=vdate,class,period`),
+      api('remote_settings?key=eq.access_code&select=value,updated_by,updated_at')]);
   }catch(e){ $('#aBody').innerHTML=`<div class="empty">تعذّر التحميل: ${esc(e.message)}</div>`; return }
   const isRemote=day.length>0;
   // today
@@ -841,7 +842,10 @@ async function renderRemote(){
   let h=`<div class="panel"><h2>${dayName(d)} ${hijri(d)}</h2>
     <div class="toolbar" style="margin:0"><span class="pill ${isRemote?'ok':'no'}" style="font-size:.9rem;padding:4px 12px">${isRemote?'يوم دراسة عن بعد — الرصد مفتوح للمعلمين':'ليس يوم دراسة عن بعد — الرصد مغلق'}</span>
     <button class="btn sm ${isRemote?'ghost':''}" id="rToggle">${isRemote?'إلغاء يوم الدراسة عن بعد':'تحديده يوم دراسة عن بعد'}</button></div>
-    <div class="linkbox" style="margin-top:12px"><span class="note">رابط المعلمين:</span><code>${REMOTE_URL}</code><button class="btn ghost sm" id="rCopy">نسخ الرابط</button></div></div>`;
+    <div class="linkbox" style="margin-top:12px"><span class="note">رابط المعلمين:</span><code>${REMOTE_URL}</code><button class="btn ghost sm" id="rCopy">نسخ الرابط</button></div>
+    <div class="linkbox" style="margin-top:10px"><span class="note">رمز دخول المعلمين (مرة واحدة لكل جهاز):</span><code id="rCodeShow">${esc(codeRow[0]?.value||'—')}</code>
+    <input class="t" id="rCodeNew" inputmode="numeric" placeholder="رمز جديد" style="max-width:130px;padding:7px"><button class="btn ghost sm" id="rCodeSave">تغيير الرمز</button></div>
+    <p class="note" style="margin:6px 0 0">تغيير الرمز يطلبه من جديد على كل الأجهزة، فاستخدمه إذا وصل الرابط والرمز لشخص غير مخوّل.</p></div>`;
   if(isRemote || sess.length){
     const totalSlots=R.classes.length*R_PERIODS;
     const ab=todayAtt.filter(a=>a.status==='absent').length, lt=todayAtt.length-ab;
@@ -878,6 +882,10 @@ async function renderRemote(){
       renderRemote() }catch(e){ toast('تعذّر الحفظ: '+e.message) } };
   $('#rCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(REMOTE_URL); toast('تم نسخ الرابط') }catch(e){ prompt('انسخ الرابط:',REMOTE_URL) } };
   $('#rCls').onchange=e=>{ rClass=e.target.value; renderRemote() };
+  $('#rCodeSave').onclick=async()=>{ const v=$('#rCodeNew').value.trim(); if(v.length<4){ toast('الرمز 4 خانات على الأقل'); return }
+    if(!confirm(`تغيير رمز المعلمين إلى ${v}؟ سيُطلب الرمز الجديد على كل الأجهزة.`)) return;
+    try{ await api('remote_settings?on_conflict=key',{method:'POST',body:[{key:'access_code',value:v,updated_by:USER,updated_at:new Date().toISOString()}],prefer:'resolution=merge-duplicates,return=minimal'}); toast('تم تغيير الرمز'); renderRemote() }
+    catch(e){ toast('تعذّر الحفظ: '+e.message) } };
   $('#rPrint').onclick=printRemoteWeek;
   document.querySelectorAll('[data-rwa]').forEach(b=>b.onclick=()=>{ const o=fullToday.find(x=>x.row.student_id===b.dataset.rwa);
     const msg=`ولي أمر الطالب ${o.row.student_name}\nنفيدكم بغياب ابنكم عن ${o.a} حصص من حصص الدراسة عن بعد اليوم ${dayName(d)} ${hijri(d)}.\n${SCHOOL}`;
