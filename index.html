@@ -144,6 +144,16 @@ main{padding-top:40px}
 .panel h2{padding-bottom:0;border-bottom:0}
 .panel h2::before{width:9px;height:9px;border-radius:1px;background:#13a295;box-shadow:0 0 0 2px #cfdad8;transform:rotate(45deg);margin-left:4px}
 #report .band{height:14px;margin-bottom:8px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24'%3E%3Crect width='48' height='24' fill='%230b6e67'/%3E%3Crect width='48' height='2' fill='%23cfdad8'/%3E%3Crect y='22' width='48' height='2' fill='%23cfdad8'/%3E%3Crect y='2.6' width='48' height='.8' fill='%23ffffff' fill-opacity='.7'/%3E%3Crect y='20.6' width='48' height='.8' fill='%23ffffff' fill-opacity='.7'/%3E%3Crect x='2' y='4.4' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='2' y='18' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='8' y='4.4' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='8' y='18' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='14' y='4.4' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='14' y='18' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='20' y='4.4' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='20' y='18' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='26' y='4.4' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='26' y='18' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='32' y='4.4' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='32' y='18' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='38' y='4.4' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='38' y='18' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='44' y='4.4' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Crect x='44' y='18' width='1.6' height='1.6' fill='%23ffffff'/%3E%3Cpath d='M12 6.4L17.6 12L12 17.6L6.4 12Z' fill='%23ffffff'/%3E%3Cpath d='M12 8.4L15.6 12L12 15.6L8.4 12Z' fill='%2313a295'/%3E%3Cpath d='M12 10.6L13.4 12L12 13.4L10.6 12Z' fill='%23cfdad8'/%3E%3Cpath d='M36 6.4L41.6 12L36 17.6L30.4 12Z' fill='%23ffffff'/%3E%3Cpath d='M36 8.4L39.6 12L36 15.6L32.4 12Z' fill='%2313a295'/%3E%3Cpath d='M36 10.6L37.4 12L36 13.4L34.6 12Z' fill='%23cfdad8'/%3E%3Cpath d='M-5 7.2L5 7.2L0 12Z M-5 16.8L5 16.8L0 12Z' fill='%239fb5b1'/%3E%3Cpath d='M19 7.2L29 7.2L24 12Z M19 16.8L29 16.8L24 12Z' fill='%239fb5b1'/%3E%3Cpath d='M43 7.2L53 7.2L48 12Z M43 16.8L53 16.8L48 12Z' fill='%239fb5b1'/%3E%3C/svg%3E") 0 0/28px 14px repeat-x;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+@media print{
+  #report .sheet{break-after:page;page-break-after:always}
+  #report .sheet:last-child{break-after:auto;page-break-after:auto}
+  #report .meta{display:flex;flex-wrap:wrap;gap:6mm;margin:0 0 3mm;font-size:10.5pt}
+  html,body{background:#fff!important}#report table.sh td,#report table.sh th{padding:.9mm 2mm;font-size:10pt;line-height:1.25}#report table.sh th{white-space:nowrap}#report .sheet .rh{margin-bottom:3mm}
+  #report table.sh tr.ab td{background:#e6eeec;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #report table.sh tr.ab td:nth-child(3){font-size:11pt}
+  #report .sign{display:flex;justify-content:space-between;margin-top:8mm;font-size:10.5pt}
+}
 </style>
 </head>
 <body>
@@ -432,7 +442,9 @@ function renderSheet(){
   const {R,eff,conv,subMap,totMap}=DATA; sheetClass ||= R.classes[0];
   const effSet=new Set(eff.map(a=>a.student_id)), convSet=new Set(conv.map(a=>a.student_id));
   const all = sheetClass==='*' ? R.classes : [sheetClass];
-  let h=`<div class="toolbar"><select class="t" id="shSel" style="max-width:260px"><option value="*">كل الفصول</option>${R.classes.map(c=>`<option ${c===sheetClass?'selected':''}>${esc(c)}</option>`).join('')}</select></div>`;
+  let h=`<div class="toolbar"><select class="t" id="shSel" style="max-width:260px"><option value="*">كل الفصول</option>${R.classes.map(c=>`<option ${c===sheetClass?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    <button class="btn sm" id="printSheets">🖨️ طباعة ${sheetClass==='*'?'كشوف كل الفصول':'كشف الفصل'}</button>
+    ${sheetClass==='*'?`<label class="note"><input type="checkbox" id="onlyDone" ${ls.get('abs_onlydone','')?'checked':''}> الفصول المرصودة فقط</label>`:''}</div>`;
   all.forEach(c=>{
     const sub=subMap[c];
     h+=`<div class="panel"><h2>${esc(c)} ${sub?`<span class="pill ok">رصده ${esc(sub.entered_by||'')}</span>`:'<span class="pill no">لم يُرصد بعد</span>'}</h2>
@@ -444,6 +456,8 @@ function renderSheet(){
   });
   $('#aBody').innerHTML=h;
   $('#shSel').onchange=e=>{ sheetClass=e.target.value; renderSheet() };
+  $('#printSheets').onclick=printSheets;
+  const od=$('#onlyDone'); if(od) od.onchange=e=>ls.set('abs_onlydone',e.target.checked?'1':'');
 }
 function renderMsgs(){
   const {eff,d,totMap}=DATA; const tpl=ls.get('abs_tpl',DEFAULT_MSG);
@@ -531,6 +545,31 @@ function celebrate(){
     e.style.animationDelay=(Math.random()*.8)+'s'; e.style.clipPath='polygon(50% 0,100% 50%,50% 100%,0 50%)';
     document.body.appendChild(e); setTimeout(()=>e.remove(),6000) }
   toast('اكتمل رصد جميع الفصول 🎉');
+}
+
+
+/* ================= PRINT CLASS SHEETS (one class per page) ================= */
+function printSheets(){
+  if(!DATA){ toast('انتظر تحميل البيانات'); return }
+  const {R,eff,conv,subMap,totMap,d}=DATA;
+  const effSet=new Set(eff.map(a=>a.student_id)), convSet=new Set(conv.map(a=>a.student_id));
+  let list = sheetClass==='*' ? R.classes : [sheetClass];
+  if(sheetClass==='*' && ls.get('abs_onlydone','')) list=list.filter(c=>subMap[c]);
+  if(!list.length){ toast('لا توجد فصول مرصودة للطباعة'); return }
+  let h='';
+  list.forEach(c=>{
+    const st=R.byClass[c], sub=subMap[c];
+    const nAbs=st.filter(s=>effSet.has(s.student_id)).length, nLate=st.filter(s=>convSet.has(s.student_id)).length;
+    h+=`<section class="sheet"><div class="band"></div>
+      <div class="rh"><div><h1>كشف غياب ${esc(c)}</h1>${SCHOOL}</div><div style="text-align:left">${dayName(d)}<br>${hijri(d)}<br>${d}</div></div>
+      <div class="meta"><span>عدد الطلاب: <b>${st.length}</b></span><span>الغائبون: <b>${sub?nAbs:'—'}</b></span><span>الحاضرون: <b>${sub?st.length-nAbs:'—'}</b></span>${nLate?`<span>حضر متأخراً: <b>${nLate}</b></span>`:''}<span>${sub?'الراصد: '+esc(sub.entered_by||''):'<b>لم يُرصد الفصل</b>'}</span></div>
+      <table class="sh"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:30mm">الحالة</th><th style="width:24mm">مجموع الغياب</th></tr>
+      ${st.map((s,i)=>{ const a=effSet.has(s.student_id), l=convSet.has(s.student_id);
+        return `<tr class="${a?'ab':''}"><td>${i+1}</td><td>${esc(s.student_name)}</td><td>${a?'غائب':l?'حضر متأخراً':''}</td><td>${totMap[s.student_id]||''}</td></tr>` }).join('')}
+      </table>
+      <div class="sign"><span>معلم الحصة: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div></section>`;
+  });
+  $('#report').innerHTML=h; setTimeout(()=>window.print(),150);
 }
 
 /* ================= PRINT REPORT ================= */
