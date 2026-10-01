@@ -190,6 +190,11 @@ main{padding-top:40px}
 .qhits button span{color:var(--muted);font-weight:400;font-size:.85rem}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 16px;margin:6px 0 4px}
 .kv div{display:flex;flex-direction:column}.kv span{font-size:.8rem;color:var(--muted)}.kv b{font-size:1rem}
+
+.rgrid td,.rgrid th{text-align:center;padding:7px 4px}
+.rgrid td:first-child,.rgrid th:first-child{text-align:right;white-space:nowrap}
+.rgrid td.c0{color:var(--green);font-weight:700}.rgrid td.c1{color:var(--red);font-weight:800;background:var(--redbg)}.rgrid td.cn{color:#c3cfcc}
+.linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.linkbox code{background:var(--head);padding:6px 10px;border-radius:8px;font-size:.85rem;direction:ltr}
 </style>
 </head>
 <body>
@@ -244,6 +249,7 @@ main{padding-top:40px}
       <button data-tab="msgs">إرسال لأولياء الأمور</button>
       <button data-tab="excuse">الأعذار</button>
       <button data-tab="query">استعلام</button>
+      <button data-tab="remote">عن بعد</button>
       <button data-tab="alerts">تنبيهات التراكم</button>
     </nav>
     <div id="aBody"><div class="loading">جاري التحميل…</div></div>
@@ -445,7 +451,7 @@ async function loadAdmin(silent){
 }
 function render(){
   if(!DATA) return;
-  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts, excuse:renderExcuse, query:renderQuery})[TAB]();
+  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts, excuse:renderExcuse, query:renderQuery, remote:renderRemote})[TAB]();
 }
 function stats(){
   const {perClass,eff,conv}=DATA; const sub=perClass.filter(p=>p.sub);
@@ -798,6 +804,102 @@ function printClass(r){
     <h3>غياب طلاب الفصل</h3><table class="sh"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:20mm">بدون عذر</th><th style="width:18mm">بعذر</th><th style="width:18mm">المجموع</th><th style="width:16mm">تأخر</th></tr>
     ${k.per.map((p,i)=>`<tr class="${p.un?'ab':''}"><td>${i+1}</td><td>${esc(p.s.student_name)}</td><td>${p.un||''}</td><td>${p.ex||''}</td><td>${(p.un+p.ex)||''}</td><td>${p.late||''}</td></tr>`).join('')}</table>
     <div class="sign"><span>رائد الفصل: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div>`;
+  doPrint(pgWrap(h));
+}
+
+/* ================= REMOTE (online) ATTENDANCE ================= */
+const REMOTE_URL='https://khayatschoole-dev.github.io/remote-attendance/';
+const R_PERIODS=7, R_FULLDAY=Math.floor(R_PERIODS/2)+1;   // أكثر من نصف الحصص = 4 من 7
+let rClass='*';
+function addDays(d,n){ const x=new Date(d+'T12:00:00Z'); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10) }
+function weekOf(d){ const dow=new Date(d+'T12:00:00Z').getUTCDay(); const s=addDays(d,-dow); return [s,addDays(s,4)] }
+async function renderRemote(){
+  const d=DATA.d, R=DATA.R, [ws,we]=weekOf(d);
+  $('#aBody').innerHTML='<div class="loading">جاري التحميل…</div>';
+  let day,sess,wk,teachers,wsess;
+  try{
+    [day,sess,wk,teachers,wsess]=await Promise.all([
+      api(`remote_days?vdate=eq.${d}&select=vdate`),
+      api(`remote_sessions?vdate=eq.${d}&select=*`),
+      getAll(`remote_attendance?vdate=gte.${ws}&vdate=lte.${we}&select=student_id,student_name,class,vdate,period,status,guardian_mobile`),
+      api('remote_teachers?select=*&order=name'),
+      getAll(`remote_sessions?vdate=gte.${ws}&vdate=lte.${we}&select=vdate,class,period`)]);
+  }catch(e){ $('#aBody').innerHTML=`<div class="empty">تعذّر التحميل: ${esc(e.message)}</div>`; return }
+  const isRemote=day.length>0;
+  // today
+  const sMap={}; sess.forEach(s=>sMap[s.class+'|'+s.period]=s);
+  const todayAtt=wk.filter(a=>a.vdate===d);
+  const perStuToday={}; todayAtt.forEach(a=>{ const o=perStuToday[a.student_id] ||= {a:0,l:0,row:a}; a.status==='absent'?o.a++:o.l++ });
+  const fullToday=Object.values(perStuToday).filter(o=>o.a>=R_FULLDAY).sort((x,y)=>y.a-x.a);
+  // week
+  const perStu={};
+  wk.forEach(a=>{ const o=perStu[a.student_id] ||= {row:a,a:0,l:0,days:{}}; if(a.status==='absent'){ o.a++; o.days[a.vdate]=(o.days[a.vdate]||0)+1 } else o.l++ });
+  Object.values(perStu).forEach(o=>o.full=Object.values(o.days).filter(n=>n>=R_FULLDAY).length);
+  const wList=Object.values(perStu).filter(o=>rClass==='*'||o.row.class===rClass).sort((x,y)=>y.full-x.full||y.a-x.a);
+  const wDays=[...new Set(wsess.map(s=>s.vdate))].sort();
+  REMOTE_CACHE={d,ws,we,wList,wDays,fullToday};
+  let h=`<div class="panel"><h2>${dayName(d)} ${hijri(d)}</h2>
+    <div class="toolbar" style="margin:0"><span class="pill ${isRemote?'ok':'no'}" style="font-size:.9rem;padding:4px 12px">${isRemote?'يوم دراسة عن بعد — الرصد مفتوح للمعلمين':'ليس يوم دراسة عن بعد — الرصد مغلق'}</span>
+    <button class="btn sm ${isRemote?'ghost':''}" id="rToggle">${isRemote?'إلغاء يوم الدراسة عن بعد':'تحديده يوم دراسة عن بعد'}</button></div>
+    <div class="linkbox" style="margin-top:12px"><span class="note">رابط المعلمين:</span><code>${REMOTE_URL}</code><button class="btn ghost sm" id="rCopy">نسخ الرابط</button></div></div>`;
+  if(isRemote || sess.length){
+    const totalSlots=R.classes.length*R_PERIODS;
+    const ab=todayAtt.filter(a=>a.status==='absent').length, lt=todayAtt.length-ab;
+    h+=`<div class="summary"><div><b>${sess.length} <small style="font-size:.55em;color:var(--muted)">من ${totalSlots}</small></b><span>حصص تم رصدها</span></div>
+      <div class="r"><b>${fullToday.length}</b><span>غائب يوماً كاملاً (${R_FULLDAY} حصص فأكثر)</span></div>
+      <div><b>${ab}</b><span>غياب حصص</span></div><div><b>${lt}</b><span>دخول متأخر</span></div></div>
+      <div class="panel"><h2>خريطة الحصص اليوم</h2><p class="note" style="margin-top:0">الرقم = عدد الغائبين في الحصة، والنقطة = لم تُرصد بعد. مرّر على الخانة لمعرفة المعلم والمادة.</p>
+      <div class="tbl-wrap"><table class="rgrid"><tr><th>الفصل</th>${Array.from({length:R_PERIODS},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>
+      ${R.classes.map(c=>`<tr><td>${esc(c)}</td>${Array.from({length:R_PERIODS},(_,i)=>{ const s=sMap[c+'|'+(i+1)];
+        return s?`<td class="${s.absent_count?'c1':'c0'}" title="${esc(s.teacher||'')} — ${esc(s.subject||'')}${s.late_count?` — متأخر ${s.late_count}`:''}">${s.absent_count||'✓'}</td>`:'<td class="cn">•</td>' }).join('')}</tr>`).join('')}
+      </table></div></div>
+      <div class="panel"><h2>الغائبون يوماً كاملاً اليوم (${fullToday.length})</h2>
+      ${fullToday.length?`<div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>حصص الغياب</th><th></th></tr>
+        ${fullToday.map(o=>`<tr><td>${esc(o.row.student_name)}</td><td>${esc(o.row.class)}</td><td class="abs">${o.a} من ${R_PERIODS}</td>
+        <td>${o.row.guardian_mobile?`<button class="btn wa sm" data-rwa="${esc(o.row.student_id)}">واتساب</button>`:''}</td></tr>`).join('')}</table></div>`:'<div class="empty">لا يوجد.</div>'}</div>`;
+  }
+  h+=`<div class="panel"><h2>التقرير الأسبوعي: ${hijri(ws)} — ${hijri(we)}</h2>
+    <div class="toolbar"><select class="t" id="rCls" style="max-width:240px"><option value="*">كل الفصول</option>${R.classes.map(c=>`<option ${c===rClass?'selected':''}>${esc(c)}</option>`).join('')}</select>
+    <button class="btn sm" id="rPrint">🖨️ طباعة التقرير الأسبوعي</button></div>
+    <p class="note" style="margin-top:0">أيام الدراسة عن بعد المرصودة هذا الأسبوع: ${wDays.length?wDays.map(x=>dayName(x)).join('، '):'لا يوجد'}</p>
+    ${wList.length?`<div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>أيام كاملة</th><th>حصص غياب</th><th>تأخر</th><th></th></tr>
+      ${wList.map(o=>`<tr><td>${esc(o.row.student_name)}</td><td>${esc(o.row.class)}</td><td class="${o.full?'abs':''}">${o.full||''}</td><td>${o.a||''}</td><td class="${o.l?'late':''}">${o.l||''}</td>
+      <td>${o.row.guardian_mobile&&o.a?`<button class="btn ghost sm" data-rwk="${esc(o.row.student_id)}">رسالة أسبوعية</button>`:''}</td></tr>`).join('')}</table></div>`:'<div class="empty">لا يوجد غياب عن بعد مسجّل هذا الأسبوع.</div>'}</div>`;
+  h+=`<div class="panel"><h2>قائمة المعلمين (${teachers.length})</h2>
+    <p class="note" style="margin-top:0">يختار المعلم اسمه من هذه القائمة عند الدخول. الصق الأسماء، كل اسم في سطر.</p>
+    <textarea class="t" id="tNames" rows="4" placeholder="أنمار فلمبان&#10;سعيد الغامدي"></textarea>
+    <div class="toolbar" style="margin:10px 0"><button class="btn sm" id="tAdd">إضافة الأسماء</button></div>
+    <div class="chips">${teachers.map(t=>`<span class="pill no" style="padding:5px 10px">${esc(t.name)} <a href="#" data-tdel="${t.id}" style="color:var(--red);text-decoration:none;margin-right:6px">✕</a></span>`).join('')||'<span class="note">لم تُضف أسماء بعد.</span>'}</div></div>`;
+  $('#aBody').innerHTML=h;
+  // bindings
+  $('#rToggle').onclick=async()=>{ try{
+      if(isRemote){ if(!confirm('إلغاء يوم الدراسة عن بعد؟ يُغلق الرصد للمعلمين، ويبقى ما رُصد محفوظاً.')) return; await api(`remote_days?vdate=eq.${d}`,{method:'DELETE'}) }
+      else await api('remote_days',{method:'POST',body:{vdate:d,created_by:USER},prefer:'return=minimal'});
+      renderRemote() }catch(e){ toast('تعذّر الحفظ: '+e.message) } };
+  $('#rCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(REMOTE_URL); toast('تم نسخ الرابط') }catch(e){ prompt('انسخ الرابط:',REMOTE_URL) } };
+  $('#rCls').onchange=e=>{ rClass=e.target.value; renderRemote() };
+  $('#rPrint').onclick=printRemoteWeek;
+  document.querySelectorAll('[data-rwa]').forEach(b=>b.onclick=()=>{ const o=fullToday.find(x=>x.row.student_id===b.dataset.rwa);
+    const msg=`ولي أمر الطالب ${o.row.student_name}\nنفيدكم بغياب ابنكم عن ${o.a} حصص من حصص الدراسة عن بعد اليوم ${dayName(d)} ${hijri(d)}.\n${SCHOOL}`;
+    window.open(`https://wa.me/${intlPhone(o.row.guardian_mobile)}?text=${encodeURIComponent(msg)}`,'_blank') });
+  document.querySelectorAll('[data-rwk]').forEach(b=>b.onclick=()=>{ const o=perStu[b.dataset.rwk];
+    const msg=`ولي أمر الطالب ${o.row.student_name}\nنفيدكم بأن ابنكم غاب هذا الأسبوع عن ${o.a} حصة في الدراسة عن بعد${o.full?`، منها ${o.full} ${o.full>1?'أيام':'يوم'} كامل`:''}.\nنأمل متابعته.\n${SCHOOL}`;
+    window.open(`https://wa.me/${intlPhone(o.row.guardian_mobile)}?text=${encodeURIComponent(msg)}`,'_blank') });
+  $('#tAdd').onclick=async()=>{ const names=[...new Set($('#tNames').value.split('\n').map(s=>s.trim()).filter(Boolean))]; if(!names.length) return;
+    try{ await api('remote_teachers?on_conflict=name',{method:'POST',body:names.map(n=>({name:n,active:true})),prefer:'resolution=merge-duplicates,return=minimal'}); toast(`تمت إضافة ${names.length} اسم`); renderRemote() }
+    catch(e){ toast('تعذّر الإضافة: '+e.message) } };
+  document.querySelectorAll('[data-tdel]').forEach(a=>a.onclick=async e=>{ e.preventDefault(); if(!confirm('حذف هذا الاسم من قائمة المعلمين؟')) return;
+    try{ await api(`remote_teachers?id=eq.${a.dataset.tdel}`,{method:'DELETE'}); renderRemote() }catch(err){ toast('تعذّر الحذف: '+err.message) } });
+}
+let REMOTE_CACHE=null;
+function printRemoteWeek(){
+  const c=REMOTE_CACHE; if(!c) return;
+  let h=`${rptHead('تقرير الغياب عن بعد الأسبوعي'+(rClass==='*'?'':' — '+esc(rClass)), c.d)}
+    <p>الأسبوع: من ${dayName(c.ws)} ${hijri(c.ws)} إلى ${dayName(c.we)} ${hijri(c.we)} — أيام الدراسة عن بعد المرصودة: ${c.wDays.length?c.wDays.map(x=>dayName(x)).join('، '):'لا يوجد'}</p>
+    <p>يُحتسب الطالب غائباً يوماً كاملاً إذا غاب ${R_FULLDAY} حصص فأكثر من ${R_PERIODS}.</p>
+    ${c.wList.length?`<table class="sh"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:34mm">الفصل</th><th style="width:20mm">أيام كاملة</th><th style="width:20mm">حصص غياب</th><th style="width:16mm">تأخر</th></tr>
+    ${c.wList.map((o,i)=>`<tr class="${o.full?'ab':''}"><td>${i+1}</td><td>${esc(o.row.student_name)}</td><td>${esc(o.row.class)}</td><td>${o.full||''}</td><td>${o.a||''}</td><td>${o.l||''}</td></tr>`).join('')}</table>`:'<p>لا يوجد غياب مسجّل.</p>'}
+    <div class="sign"><span>وكيل شؤون الطلاب: ......................</span><span>مدير المدرسة: ......................</span></div>`;
   doPrint(pgWrap(h));
 }
 /* ================= PRINT REPORT ================= */
