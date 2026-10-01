@@ -111,7 +111,7 @@ td.late{color:var(--amber);font-weight:600}
 /* print report */
 #report{display:none}
 @media print{
-  @page{size:A4;margin:12mm}
+  @page{size:A4;margin:0}
   body{background:#fff}
   body>*:not(#report){display:none!important}
   #report{display:block;font-size:11pt;color:#000}
@@ -161,6 +161,15 @@ main{padding-top:40px}
   #report .ofc{display:flex;justify-content:center;min-width:30mm}
   #report .ofc img{height:19mm;width:auto;object-fit:contain}
   #report h1.oft{text-align:center;font-size:15pt;margin:4mm 0 3mm}
+}
+
+@media print{
+  #report{padding:0 12mm}
+  #report .sheet{padding:12mm 0 8mm}
+  #report table.pg{width:100%;border:0}
+  #report table.pg>thead td,#report table.pg>tfoot td,#report table.pg>tbody>tr>td{border:0;padding:0;background:none}
+  #report table.pg>thead td{height:12mm}
+  #report table.pg>tfoot td{height:10mm}
 }
 </style>
 </head>
@@ -590,9 +599,17 @@ function printSheets(which){
       </table>
       <div class="sign"><span>معلم الحصة: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div></section>`;
   });
-  $('#report').innerHTML=h; setTimeout(()=>window.print(),150);
+  doPrint(h);
 }
 
+
+function doPrint(html){
+  $('#report').innerHTML=html;
+  const t=document.title; document.title=' ';
+  const restore=()=>{ document.title=t; window.removeEventListener('afterprint',restore) };
+  window.addEventListener('afterprint',restore);
+  setTimeout(()=>{ window.print(); setTimeout(restore,1500) },150);
+}
 /* ================= PRINT REPORT ================= */
 function printReport(){
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
@@ -609,7 +626,7 @@ function printReport(){
   h+=`</div>`;
   if(fresh.length) h+=`<h3>طلاب بلغوا حداً جديداً اليوم</h3><table><tr><th>الطالب</th><th>الفصل</th><th>أيام الغياب</th></tr>${fresh.map(t=>`<tr><td>${esc(t.student_name)}</td><td>${esc(t.class)}</td><td>${t.total_days}</td></tr>`).join('')}</table>`;
   h+=`<p style="margin-top:24px">وكيل شؤون الطلاب: ........................ &nbsp;&nbsp;&nbsp; مدير المدرسة: ........................</p>`;
-  $('#report').innerHTML=h; setTimeout(()=>window.print(),150);
+  doPrint(`<table class="pg"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>${h}</td></tr></tbody></table>`);
 }
 
 /* ================= BOOT (after all declarations) ================= */
