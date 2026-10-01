@@ -20,21 +20,21 @@
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 *,*::before,*::after{box-sizing:inherit}
-html,body{margin:0;background:var(--bg);color:#1b2533;font-family:"Tajawal",Tahoma,Arial,sans-serif;font-size:16px;line-height:1.55}
+html,body{margin:0;background-color:var(--bg);background-image:radial-gradient(rgba(11,110,103,.10) 1.2px,transparent 1.4px);background-size:20px 20px;color:#1b2533;font-family:"Tajawal",Tahoma,Arial,sans-serif;font-size:16px;line-height:1.55}
 button,input,select,textarea{font-family:inherit;font-size:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid #f1b44c;outline-offset:2px}
 .hide{display:none!important}
-header.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:linear-gradient(135deg,#0a6660,#13a295);box-shadow:0 2px 0 #f0b429;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px}
+header.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.15' stroke-width='1.1'%3E%3Crect x='22' y='22' width='28' height='28'/%3E%3Crect x='22' y='22' width='28' height='28' transform='rotate%2845 36 36%29'/%3E%3Ccircle cx='36' cy='36' r='6'/%3E%3Cpath d='M0 0L13 13M72 0L59 13M0 72L13 59M72 72L59 59'/%3E%3C/g%3E%3Cg fill='%23fff' fill-opacity='.25'%3E%3Ccircle cx='0' cy='36' r='1.8'/%3E%3Ccircle cx='72' cy='36' r='1.8'/%3E%3Ccircle cx='36' cy='0' r='1.8'/%3E%3Ccircle cx='36' cy='72' r='1.8'/%3E%3C/g%3E%3C/svg%3E") center/72px,linear-gradient(135deg,#0a6660,#13a295);box-shadow:0 2px 0 #f0b429;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px}
 header.bar h1{font-family:"Tajawal",sans-serif;font-size:1.25rem;margin:0;flex:1;font-weight:700}
 header.bar small{display:block;font-family:"Tajawal";font-weight:400;font-size:.78rem;opacity:.8}
 .iconbtn{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:10px;padding:8px 12px}
 main{max-width:1100px;margin:0 auto;padding:16px}
 
 /* login */
-#login{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(160deg,#0a6660 0%,#13a295 60%,#8fd8ce 100%)}
-.loginbox{background:var(--paper);border-radius:18px;padding:28px 24px;border-top:5px solid #f0b429;box-shadow:0 18px 40px rgba(6,70,65,.25);width:100%;max-width:380px}
-.loginbox h1{font-family:"Tajawal",sans-serif;color:var(--ink);font-size:1.9rem;margin:0}
+#login{min-height:100vh;display:grid;place-items:center;padding:24px;position:relative;overflow:hidden;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.15' stroke-width='1.1'%3E%3Crect x='22' y='22' width='28' height='28'/%3E%3Crect x='22' y='22' width='28' height='28' transform='rotate%2845 36 36%29'/%3E%3Ccircle cx='36' cy='36' r='6'/%3E%3Cpath d='M0 0L13 13M72 0L59 13M0 72L13 59M72 72L59 59'/%3E%3C/g%3E%3Cg fill='%23fff' fill-opacity='.25'%3E%3Ccircle cx='0' cy='36' r='1.8'/%3E%3Ccircle cx='72' cy='36' r='1.8'/%3E%3Ccircle cx='36' cy='0' r='1.8'/%3E%3Ccircle cx='36' cy='72' r='1.8'/%3E%3C/g%3E%3C/svg%3E") center/72px,linear-gradient(160deg,#0a6660 0%,#13a295 60%,#8fd8ce 100%)}#login::before,#login::after{content:"";position:absolute;width:420px;height:420px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.18' stroke-width='1.2'%3E%3Crect x='37.0' y='37.0' width='126.0' height='126.0'/%3E%3Crect x='37.0' y='37.0' width='126.0' height='126.0' transform='rotate%2845 100 100%29'/%3E%3Crect x='51.0' y='51.0' width='98.0' height='98.0'/%3E%3Crect x='51.0' y='51.0' width='98.0' height='98.0' transform='rotate%2845 100 100%29'/%3E%3Crect x='65.0' y='65.0' width='70.0' height='70.0'/%3E%3Crect x='65.0' y='65.0' width='70.0' height='70.0' transform='rotate%2845 100 100%29'/%3E%3Ccircle cx='100' cy='100' r='96'/%3E%3Ccircle cx='100' cy='100' r='22'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;pointer-events:none}#login::before{top:-140px;left:-140px}#login::after{bottom:-160px;right:-160px;animation:spin 120s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){#login::after{animation:none}}
+.loginbox{position:relative;z-index:1;text-align:center;background:var(--paper);border-radius:18px;padding:52px 24px 28px;border-top:5px solid #f0b429;box-shadow:0 18px 40px rgba(6,70,65,.25);width:100%;max-width:380px}
+.loginbox label.f,.loginbox .err{text-align:right}.medal{position:absolute;top:-38px;left:50%;transform:translateX(-50%);width:76px;height:76px;border-radius:50%;background:#fff;box-shadow:0 6px 18px rgba(6,70,65,.25);display:grid;place-items:center}.loginbox h1{font-family:"Tajawal",sans-serif;color:var(--ink);font-size:1.9rem;margin:0}
 .loginbox p{color:var(--muted);margin:4px 0 22px}
 label.f{display:block;font-weight:600;font-size:.9rem;margin:12px 0 6px}
 input.t,select.t,textarea.t{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
@@ -52,7 +52,7 @@ input.t,select.t,textarea.t{width:100%;padding:12px;border:1.5px solid var(--lin
 .classbtn{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:14px 6px;text-align:center;font-weight:700;font-size:1.3rem;color:var(--ink);position:relative}
 .classbtn small{display:block;font-size:.72rem;font-weight:500;color:var(--muted)}
 .classbtn.done{border-color:var(--green);background:var(--greenbg)}
-.classbtn.done::after{content:"✓";position:absolute;top:4px;left:8px;color:var(--green);font-size:.9rem}
+.classbtn.done::after{content:"✓";position:absolute;top:4px;left:8px;color:var(--green);font-size:.9rem}.classbtn.perfect{border-color:#e0a91f;background:linear-gradient(160deg,#fff8e6,#fdeec4)}.classbtn.perfect::after{content:"";width:16px;height:16px;top:6px;left:6px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cg fill='%23f0b429'%3E%3Crect x='4' y='4' width='12' height='12'/%3E%3Crect x='4' y='4' width='12' height='12' transform='rotate%2845 10 10%29'/%3E%3C/g%3E%3Ccircle cx='10' cy='10' r='2.6' fill='%23fff'/%3E%3C/svg%3E") center/contain no-repeat}.classbtn{background-image:radial-gradient(rgba(11,110,103,.08) 1px,transparent 1.2px);background-size:10px 10px}
 
 /* roll call — the paper register */
 .register{background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden}
@@ -86,7 +86,7 @@ input.t,select.t,textarea.t{width:100%;padding:12px;border:1.5px solid var(--lin
 .progress{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 14px}
 .progress i{display:block;height:100%;background:linear-gradient(90deg,#0b6e67,#13a295)}
 .panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px}
-.panel h2{font-size:1.05rem;margin:0 0 10px;color:var(--ink);padding-right:10px;border-right:4px solid var(--ink2)}
+.panel h2{font-size:1.05rem;margin:0 0 10px;color:var(--ink);padding-right:26px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cg fill='%23f0b429'%3E%3Crect x='4' y='4' width='12' height='12'/%3E%3Crect x='4' y='4' width='12' height='12' transform='rotate%2845 10 10%29'/%3E%3C/g%3E%3Ccircle cx='10' cy='10' r='2.6' fill='%23fff'/%3E%3C/svg%3E") right center/18px no-repeat}.beads{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;padding:14px;margin-bottom:16px;background:var(--paper);border:1px solid var(--line);border-radius:14px}.beads i{width:26px;height:26px;border-radius:50%;background:#e3ebe9;display:grid;place-items:center;font-style:normal;font-size:.62rem;font-weight:700;color:var(--muted);transition:background .4s}.beads i.on{background:linear-gradient(145deg,#13a295,#0b6e67);color:#fff}.beads i.gold{background:linear-gradient(145deg,#f6c94c,#d99a0b);color:#fff}.bead-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;width:100%}.bead-lbl{font-size:.75rem;font-weight:700;color:var(--ink);width:44px;text-align:center}.confetti{position:fixed;top:-20px;width:14px;height:14px;z-index:60;pointer-events:none;animation:fall linear forwards}@keyframes fall{to{transform:translateY(110vh) rotate(540deg)}}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:.93rem}
 th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
@@ -131,6 +131,7 @@ td.late{color:var(--amber);font-weight:600}
 <!-- ============ LOGIN ============ -->
 <section id="login">
   <div class="loginbox">
+    <div class="medal"><svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true"><g fill="#0b6e67"><rect x="11" y="11" width="30" height="30" rx="2"/><rect x="11" y="11" width="30" height="30" rx="2" transform="rotate(45 26 26)"/></g><circle cx="26" cy="26" r="11" fill="#fff"/><path d="M20.5 26.5l3.8 3.8 7.5-8" fill="none" stroke="#f0b429" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <h1>رصد الغياب</h1>
     <p>مدرسة الشيخ عبدالله خياط المتوسطة</p>
     <label class="f" for="uname">اسم المعلم</label>
@@ -269,7 +270,7 @@ async function openClasses(){
   const box=$('#tClasses'); box.classList.remove('hide');
   const d=todayRiyadh();
   $('#tTitle').firstChild.nodeValue='اختر الفصل';
-  $('#tSub').textContent=`${dayName(d)} ${hijri(d)}`;
+  $('#tSub').textContent=`${greet()} أ. ${USER.split(' ')[0]} — ${dayName(d)} ${hijri(d)}`;
   box.innerHTML='<div class="loading">جاري تحميل الفصول…</div>';
   try{
     const [R, subs] = await Promise.all([roster(), api(`absence_submissions?vdate=eq.${d}&select=class,absent_count`)]);
@@ -279,7 +280,7 @@ async function openClasses(){
       const cls=R.classes.filter(c=>c.startsWith(g)); if(!cls.length) return;
       html+=`<div class="grade">${g}</div><div class="classgrid">`;
       cls.forEach(c=>{ const sec=c.split(' - ')[1], isD=c in done;
-        html+=`<button class="classbtn ${isD?'done':''}" data-c="${esc(c)}">${sec}<small>${isD?('غياب '+done[c]):(R.byClass[c].length+' طالب')}</small></button>` });
+        html+=`<button class="classbtn ${isD?(done[c]===0?'done perfect':'done'):''}" data-c="${esc(c)}">${sec}<small>${isD?(done[c]===0?'حضور كامل':'غياب '+done[c]):(R.byClass[c].length+' طالب')}</small></button>` });
       html+='</div>';
     });
     if(ROLE==='admin') html+=`<p style="margin-top:20px"><button class="btn ghost" onclick="show('admin');loadAdmin()">العودة للوحة الغياب</button></p>`;
@@ -386,11 +387,12 @@ function renderToday(){
   const s=stats(), {perClass}=DATA;
   const pending=perClass.filter(p=>!p.sub).map(p=>p.c);
   let h=`<div class="summary">
-    <div><b>${s.done} / ${s.total}</b><span>فصول تم رصدها</span></div>
+    <div><b>${s.done} <small style="font-size:.55em;color:var(--muted)">من ${s.total}</small></b><span>فصول تم رصدها</span></div>
     <div class="r"><b>${s.absent}</b><span>طالب غائب</span></div>
     <div><b>${s.rate.toFixed(1)}٪</b><span>نسبة الغياب في الفصول المرصودة</span></div>
     <div><b>${s.conv}</b><span>غياب أُلغي لأن الطالب حضر متأخراً</span></div></div>
-    <div class="progress"><i style="width:${s.total?s.done/s.total*100:0}%"></i></div>`;
+    <div class="beads" aria-label="مؤشر رصد الفصول">${beads()}</div>`;
+  if(s.done===s.total && s.total && !celebrated[DATA.d]){ celebrated[DATA.d]=1; celebrate() }
   if(pending.length) h+=`<div class="panel"><h2>فصول لم تُرصد بعد (${pending.length})</h2><div class="chips">${pending.map(c=>`<span class="pill no">${esc(c)}</span>`).join('')}</div></div>`;
   else h+=`<div class="panel"><h2>اكتمل رصد جميع الفصول ✓</h2><p class="note" style="margin:0">الإحصائية العامة نهائية لهذا اليوم، ويمكن طباعة التقرير أو إرسال الرسائل.</p></div>`;
   // per grade
@@ -490,6 +492,25 @@ function renderAlerts(){
   document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{
     const t=TOTALS.find(x=>x.student_id===b.dataset.al);
     window.open(`https://wa.me/${intlPhone(t.guardian_mobile)}?text=${encodeURIComponent(fillMsg($('#atpl').value,t,d,t.total_days))}`,'_blank') });
+}
+
+function greet(){ const hr=+new Date().toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'Asia/Riyadh'}); return hr<12?'صباح الخير':'مساء الخير' }
+const celebrated={};
+function beads(){
+  const {perClass}=DATA; let out='';
+  GRADES.forEach(g=>{ const ps=perClass.filter(p=>p.c.startsWith(g)); if(!ps.length) return;
+    out+=`<div class="bead-row"><span class="bead-lbl">${g.split(' ')[0]}</span>`+ps.map(p=>{ const cls=p.sub?(p.a===0?'gold':'on'):'';
+      return `<i class="${cls}" title="${esc(p.c)}${p.sub?(p.a===0?' — حضور كامل':' — غياب '+p.a):' — لم يُرصد'}">${p.c.split(' - ')[1]}</i>` }).join('')+'</div>' });
+  return out+'<div class="note" style="width:100%;text-align:center;margin-top:4px">كل خرزة فصل: الأخضر تم رصده، الذهبي حضور كامل، الرمادي لم يُرصد</div>';
+}
+function celebrate(){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) { toast('اكتمل رصد جميع الفصول 🎉'); return }
+  const cols=['#13a295','#0b6e67','#f0b429','#ffffff'];
+  for(let i=0;i<60;i++){ const e=document.createElement('i'); e.className='confetti';
+    e.style.left=Math.random()*100+'vw'; e.style.background=cols[i%4]; e.style.animationDuration=(2.5+Math.random()*2.5)+'s';
+    e.style.animationDelay=(Math.random()*.8)+'s'; e.style.clipPath='polygon(50% 0,61% 35%,100% 50%,61% 65%,50% 100%,39% 65%,0 50%,39% 35%)';
+    document.body.appendChild(e); setTimeout(()=>e.remove(),6000) }
+  toast('اكتمل رصد جميع الفصول 🎉');
 }
 
 /* ================= PRINT REPORT ================= */
