@@ -261,7 +261,7 @@ function login(){
 }
 document.querySelectorAll('[data-logout]').forEach(b=>b.onclick=()=>{ ls.del('abs_role'); ROLE=null; $('#upass').value=''; show('login') });
 function start(){ if(ROLE==='admin'){ show('admin'); initAdmin() } else { show('teacher'); openClasses() } }
-(function(){ const r=ls.get('abs_role',null), u=ls.get('abs_user',''); if(r&&u){ ROLE=r; USER=u; start() } })();
+
 
 /* ================= TEACHER ================= */
 $('#tBack').onclick = openClasses;
@@ -531,6 +531,9 @@ function printReport(){
   h+=`<p style="margin-top:24px">وكيل شؤون الطلاب: ........................ &nbsp;&nbsp;&nbsp; مدير المدرسة: ........................</p>`;
   $('#report').innerHTML=h; setTimeout(()=>window.print(),150);
 }
+
+/* ================= BOOT (after all declarations) ================= */
+(function(){ const r=ls.get('abs_role',null), u=ls.get('abs_user',''); if(r&&u){ ROLE=r; USER=u; start() } })();
 </script>
 </body>
 </html>
