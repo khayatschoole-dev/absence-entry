@@ -178,6 +178,18 @@ main{padding-top:40px}
   #report table.pg>thead td{height:12mm}
   #report table.pg>tfoot td{height:10mm}
 }
+
+.seg{display:inline-flex;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:3px;margin-bottom:14px}
+.seg button{border:0;background:none;padding:8px 18px;border-radius:9px;font-weight:700;color:var(--ink)}
+.seg button.on{background:var(--ink);color:#fff}
+.qform{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.qform label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:600;color:var(--muted)}
+.qform input,.qform select{padding:9px;border:1.5px solid var(--line);border-radius:10px;background:#fff;min-width:0}
+.qhits{display:flex;flex-direction:column;margin-top:8px}
+.qhits button{display:flex;justify-content:space-between;gap:8px;text-align:right;background:#fff;border:0;border-bottom:1px solid var(--line);padding:10px 4px;font-weight:600;color:#1b2533}
+.qhits button span{color:var(--muted);font-weight:400;font-size:.85rem}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 16px;margin:6px 0 4px}
+.kv div{display:flex;flex-direction:column}.kv span{font-size:.8rem;color:var(--muted)}.kv b{font-size:1rem}
 </style>
 </head>
 <body>
@@ -231,6 +243,7 @@ main{padding-top:40px}
       <button data-tab="sheet">كشف الفصول</button>
       <button data-tab="msgs">إرسال لأولياء الأمور</button>
       <button data-tab="excuse">الأعذار</button>
+      <button data-tab="query">استعلام</button>
       <button data-tab="alerts">تنبيهات التراكم</button>
     </nav>
     <div id="aBody"><div class="loading">جاري التحميل…</div></div>
@@ -432,7 +445,7 @@ async function loadAdmin(silent){
 }
 function render(){
   if(!DATA) return;
-  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts, excuse:renderExcuse})[TAB]();
+  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts, excuse:renderExcuse, query:renderQuery})[TAB]();
 }
 function stats(){
   const {perClass,eff,conv}=DATA; const sub=perClass.filter(p=>p.sub);
@@ -670,6 +683,122 @@ async function toggleExcuse(id){
     toast(body.excused?'تم تسجيل الغياب بعذر':'أُعيد الغياب إلى بدون عذر');
     await loadAdmin(true);
   }catch(e){ toast('تعذّر الحفظ: '+e.message) }
+}
+
+/* ================= QUERY (student / class) ================= */
+let qMode='student', qFrom='', qTo='', qText='', qSel=null, qClass=null, qRes=null;
+function rangeQS(){ return (qFrom?`&vdate=gte.${qFrom}`:'')+(qTo?`&vdate=lte.${qTo}`:'') }
+function periodTxt(){ return qFrom||qTo ? `الفترة: ${qFrom?hijri(qFrom):'البداية'} — ${qTo?hijri(qTo):'اليوم'}` : 'الفترة: منذ بداية الرصد' }
+function renderQuery(){
+  const {R}=DATA; qClass ||= R.classes[0];
+  let h=`<div class="seg"><button data-m="student" class="${qMode==='student'?'on':''}">استعلام عن طالب</button><button data-m="class" class="${qMode==='class'?'on':''}">استعلام عن فصل</button></div>
+    <div class="panel"><div class="qform">
+      ${qMode==='student'
+        ? `<label style="flex:1;min-width:200px">اسم الطالب أو رقم الهوية<input id="qText" value="${esc(qText)}" placeholder="اكتب جزءاً من الاسم" autocomplete="off"></label>`
+        : `<label style="flex:1;min-width:180px">الفصل<select id="qClass">${R.classes.map(c=>`<option ${c===qClass?'selected':''}>${esc(c)}</option>`).join('')}</select></label>`}
+      <label>من تاريخ<input type="date" id="qFrom" value="${qFrom}"></label>
+      <label>إلى تاريخ<input type="date" id="qTo" value="${qTo}"></label>
+      ${qMode==='class'?'<button class="btn sm" id="qGo">عرض</button>':''}
+    </div>${qMode==='student'?'<div class="qhits" id="qHits"></div>':''}</div>
+    <div id="qOut">${qRes?(qMode==='student'?stuView(qRes):clsView(qRes)):''}</div>`;
+  $('#aBody').innerHTML=h;
+  document.querySelectorAll('.seg [data-m]').forEach(b=>b.onclick=()=>{ qMode=b.dataset.m; qRes=null; renderQuery() });
+  $('#qFrom').onchange=e=>{ qFrom=e.target.value; rerunQ() }; $('#qTo').onchange=e=>{ qTo=e.target.value; rerunQ() };
+  if(qMode==='student'){ const t=$('#qText'); t.oninput=()=>{ qText=t.value; showHits() }; if(qText && !qRes) showHits() }
+  else { $('#qClass').onchange=e=>{ qClass=e.target.value; runClass() }; $('#qGo').onclick=runClass }
+  bindQ();
+}
+function rerunQ(){ if(qMode==='student'){ if(qSel) runStudent(qSel) } else if(qRes) runClass() }
+function showHits(){
+  const box=$('#qHits'); const q=qText.trim(); if(q.length<2){ box.innerHTML=''; return }
+  const hits=DATA.R.list.filter(s=>s.student_name.includes(q)||String(s.student_id).includes(q)).slice(0,12);
+  box.innerHTML=hits.length?hits.map(s=>`<button data-sid="${esc(s.student_id)}">${esc(s.student_name)}<span>${esc(s.class_label)}</span></button>`).join(''):'<div class="empty">لا يوجد طالب بهذا الاسم.</div>';
+  box.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{ box.innerHTML=''; runStudent(b.dataset.sid) });
+}
+async function runStudent(sid){
+  qSel=sid; const s=DATA.R.byId[sid]; $('#qOut').innerHTML='<div class="loading">جاري الاستعلام…</div>';
+  try{
+    const [abs,late]=await Promise.all([
+      api(`absences_effective?student_id=eq.${encodeURIComponent(sid)}${rangeQS()}&select=*&order=vdate.desc`),
+      api(`late_arrivals?student_id=eq.${encodeURIComponent(sid)}${rangeQS()}&select=vdate&order=vdate.desc`)]);
+    qRes={s,abs,late}; $('#qOut').innerHTML=stuView(qRes); bindQ();
+  }catch(e){ $('#qOut').innerHTML=`<div class="empty">تعذّر الاستعلام: ${esc(e.message)}</div>` }
+}
+function stuView(r){
+  const {s,abs,late}=r, ex=abs.filter(a=>a.excused).length, un=abs.length-ex;
+  return `<div class="panel"><h2>${esc(s.student_name)}</h2>
+    <div class="kv"><div><span>الفصل</span><b>${esc(s.class_label)}</b></div><div><span>رقم الهوية</span><b>${esc(s.student_id)}</b></div>
+    <div><span>جوال ولي الأمر</span><b dir="ltr" style="text-align:right">${esc(s.guardian_mobile||'—')}</b></div></div>
+    <p class="note">${periodTxt()}</p></div>
+    <div class="summary"><div class="r"><b>${un}</b><span>غياب بدون عذر</span></div><div><b>${ex}</b><span>غياب بعذر</span></div>
+    <div><b>${abs.length}</b><span>مجموع أيام الغياب</span></div><div><b>${late.length}</b><span>مرات التأخر الصباحي</span></div></div>
+    <div class="panel"><h2>أيام الغياب</h2>
+    ${abs.length?`<div class="tbl-wrap"><table><tr><th>م</th><th>اليوم والتاريخ</th><th>الحالة</th></tr>
+      ${abs.map((a,i)=>`<tr><td>${i+1}</td><td style="white-space:normal">${dayName(a.vdate)} ${hijri(a.vdate)}</td>
+      <td class="${a.excused?'exc':'abs'}" style="white-space:normal">${a.excused?'بعذر'+(a.excuse_note?'<br><span class="note">'+esc(a.excuse_note)+'</span>':''):'بدون عذر'}</td></tr>`).join('')}</table></div>`
+      :'<div class="empty">لا يوجد غياب مسجّل لهذا الطالب في الفترة المحددة.</div>'}
+    ${late.length?`<p class="note">أيام التأخر: ${late.map(l=>`${dayName(l.vdate)} ${l.vdate}`).join('، ')}</p>`:''}
+    <div class="toolbar" style="margin:10px 0 0"><button class="btn sm" data-qprint="student">🖨️ طباعة تقرير الطالب</button></div></div>`;
+}
+async function runClass(){
+  const c=qClass; $('#qOut').innerHTML='<div class="loading">جاري الاستعلام…</div>';
+  try{
+    const cq=encodeURIComponent(c);
+    const [abs,subs,late]=await Promise.all([
+      getAll(`absences_effective?class=eq.${cq}${rangeQS()}&select=*&order=vdate.desc`),
+      getAll(`absence_submissions?class=eq.${cq}${rangeQS()}&select=vdate,absent_count,entered_by&order=vdate.desc`),
+      getAll(`late_arrivals?class=eq.${cq}${rangeQS()}&select=student_id,vdate`)]);
+    qRes={c,abs,subs,late}; $('#qOut').innerHTML=clsView(qRes); bindQ();
+  }catch(e){ $('#qOut').innerHTML=`<div class="empty">تعذّر الاستعلام: ${esc(e.message)}</div>` }
+}
+function clsStats(r){
+  const st=DATA.R.byClass[r.c]||[], days=r.subs.length;
+  const per=st.map(s=>{ const a=r.abs.filter(x=>x.student_id===s.student_id); const ex=a.filter(x=>x.excused).length;
+    return {s, un:a.length-ex, ex, late:r.late.filter(l=>l.student_id===s.student_id).length} });
+  const total=r.abs.length, rate=days&&st.length? total/(days*st.length)*100 : 0;
+  const byDay={}; r.abs.forEach(a=>byDay[a.vdate]=(byDay[a.vdate]||0)+1);
+  return {st,days,per,total,rate,byDay,ex:r.abs.filter(a=>a.excused).length};
+}
+function clsView(r){
+  const k=clsStats(r);
+  const sorted=[...k.per].sort((a,b)=>(b.un+b.ex)-(a.un+a.ex));
+  return `<div class="panel"><h2>${esc(r.c)}</h2><p class="note" style="margin:0">${periodTxt()}</p></div>
+    <div class="summary"><div><b>${k.days}</b><span>أيام تم رصدها</span></div><div class="r"><b>${k.total}</b><span>مجموع حالات الغياب${k.ex?` — منها ${k.ex} بعذر`:''}</span></div>
+    <div><b>${k.rate.toFixed(1)}٪</b><span>متوسط نسبة الغياب</span></div><div><b>${k.per.filter(p=>p.un+p.ex===0).length}</b><span>طلاب بلا أي غياب</span></div></div>
+    <div class="panel"><h2>غياب طلاب الفصل</h2><div class="tbl-wrap"><table><tr><th>م</th><th>الطالب</th><th>بدون عذر</th><th>بعذر</th><th>المجموع</th><th>تأخر</th></tr>
+    ${sorted.map((p,i)=>`<tr><td>${i+1}</td><td><a href="#" data-open="${esc(p.s.student_id)}" style="color:inherit">${esc(p.s.student_name)}</a></td>
+      <td class="${p.un?'abs':''}">${p.un||''}</td><td class="${p.ex?'exc':''}">${p.ex||''}</td><td>${(p.un+p.ex)||''}</td><td class="${p.late?'late':''}">${p.late||''}</td></tr>`).join('')}</table></div></div>
+    <div class="panel"><h2>الغياب حسب اليوم</h2>${r.subs.length?`<div class="tbl-wrap"><table><tr><th>اليوم والتاريخ</th><th>الغائبون</th><th>الراصد</th></tr>
+    ${r.subs.map(s=>`<tr><td>${dayName(s.vdate)} ${hijri(s.vdate)}</td><td class="${k.byDay[s.vdate]?'abs':''}">${k.byDay[s.vdate]||0}</td><td class="note">${esc(s.entered_by||'')}</td></tr>`).join('')}</table></div>`:'<div class="empty">لم يُرصد هذا الفصل في الفترة المحددة.</div>'}
+    <div class="toolbar" style="margin:10px 0 0"><button class="btn sm" data-qprint="class">🖨️ طباعة تقرير الفصل</button></div></div>`;
+}
+function bindQ(){
+  document.querySelectorAll('[data-qprint]').forEach(b=>b.onclick=()=>b.dataset.qprint==='student'?printStudent(qRes):printClass(qRes));
+  document.querySelectorAll('[data-open]').forEach(a=>a.onclick=e=>{ e.preventDefault(); qMode='student'; qText=DATA.R.byId[a.dataset.open]?.student_name||''; renderQuery(); runStudent(a.dataset.open) });
+}
+function pgWrap(h){ return `<table class="pg"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>${h}</td></tr></tbody></table>` }
+function printStudent(r){
+  const {s,abs,late}=r, ex=abs.filter(a=>a.excused).length, d=todayRiyadh();
+  let h=`${rptHead('تقرير غياب طالب', d)}
+    <table><tr><th>اسم الطالب</th><td>${esc(s.student_name)}</td><th>الفصل</th><td>${esc(s.class_label)}</td></tr>
+    <tr><th>رقم الهوية</th><td>${esc(s.student_id)}</td><th>جوال ولي الأمر</th><td>${esc(s.guardian_mobile||'')}</td></tr></table>
+    <p>${periodTxt()}</p>
+    <table><tr><th>غياب بدون عذر</th><th>غياب بعذر</th><th>مجموع أيام الغياب</th><th>مرات التأخر</th></tr>
+    <tr><td>${abs.length-ex}</td><td>${ex}</td><td>${abs.length}</td><td>${late.length}</td></tr></table>
+    <h3>أيام الغياب</h3>${abs.length?`<table><tr><th style="width:10mm">م</th><th>اليوم</th><th>التاريخ الهجري</th><th>الميلادي</th><th>الحالة</th></tr>
+    ${[...abs].reverse().map((a,i)=>`<tr><td>${i+1}</td><td>${dayName(a.vdate)}</td><td>${hijri(a.vdate)}</td><td>${a.vdate}</td><td>${a.excused?'بعذر'+(a.excuse_note?' — '+esc(a.excuse_note):''):'بدون عذر'}</td></tr>`).join('')}</table>`:'<p>لا يوجد غياب مسجّل.</p>'}
+    <div class="sign"><span>وكيل شؤون الطلاب: ......................</span><span>مدير المدرسة: ......................</span></div>`;
+  doPrint(pgWrap(h));
+}
+function printClass(r){
+  const k=clsStats(r), d=todayRiyadh();
+  let h=`${rptHead('تقرير غياب فصل '+esc(r.c), d)}<p>${periodTxt()}</p>
+    <table><tr><th>أيام تم رصدها</th><th>عدد الطلاب</th><th>مجموع حالات الغياب</th><th>منها بعذر</th><th>متوسط نسبة الغياب</th></tr>
+    <tr><td>${k.days}</td><td>${k.st.length}</td><td>${k.total}</td><td>${k.ex}</td><td>${k.rate.toFixed(1)}٪</td></tr></table>
+    <h3>غياب طلاب الفصل</h3><table class="sh"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:20mm">بدون عذر</th><th style="width:18mm">بعذر</th><th style="width:18mm">المجموع</th><th style="width:16mm">تأخر</th></tr>
+    ${k.per.map((p,i)=>`<tr class="${p.un?'ab':''}"><td>${i+1}</td><td>${esc(p.s.student_name)}</td><td>${p.un||''}</td><td>${p.ex||''}</td><td>${(p.un+p.ex)||''}</td><td>${p.late||''}</td></tr>`).join('')}</table>
+    <div class="sign"><span>رائد الفصل: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div>`;
+  doPrint(pgWrap(h));
 }
 /* ================= PRINT REPORT ================= */
 function printReport(){
