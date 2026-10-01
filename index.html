@@ -93,6 +93,13 @@ th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white
 th{color:var(--ink);font-weight:700;font-size:.84rem;background:var(--head)}
 td.abs{color:var(--red);font-weight:700}
 td.late{color:var(--amber);font-weight:600}
+td.exc{color:#2b6cb0;font-weight:700}
+.pill.ex{background:#e3eefb;color:#2b6cb0}
+.exrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.exrow:last-child{border-bottom:0}
+.exinfo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.exact{display:flex;gap:8px;align-items:center;margin-inline-start:auto}
+.exrow.is-ex{background:linear-gradient(to left,#f3f8fe,transparent)}
 .pill{display:inline-block;border-radius:99px;padding:1px 10px;font-size:.8rem;font-weight:600}
 .pill.no{background:#eef1f5;color:var(--muted)}
 .pill.ok{background:var(--greenbg);color:var(--green)}
@@ -223,6 +230,7 @@ main{padding-top:40px}
       <button data-tab="today" class="on">إحصائية اليوم</button>
       <button data-tab="sheet">كشف الفصول</button>
       <button data-tab="msgs">إرسال لأولياء الأمور</button>
+      <button data-tab="excuse">الأعذار</button>
       <button data-tab="alerts">تنبيهات التراكم</button>
     </nav>
     <div id="aBody"><div class="loading">جاري التحميل…</div></div>
@@ -391,7 +399,7 @@ async function submitRoll(cls,d,studs){
 }
 
 /* ================= ADMIN ================= */
-let TAB='today', DATA=null, TOTALS=null, alertFilter=0, hideSent=true, autoT=null;
+let TAB='today', DATA=null, TOTALS=null, ALLTOT={}, alertFilter=0, hideSent=true, autoT=null;
 $('#toTeacher').onclick=()=>{ show('teacher'); openClasses() };
 function initAdmin(){
   $('#aDate').value=todayRiyadh();
@@ -410,12 +418,12 @@ async function loadAdmin(silent){
       api(`absence_submissions?vdate=eq.${d}&select=*`),
       getAll(`absences?vdate=eq.${d}&select=*&order=class,student_name`),
       getAll(`late_arrivals?vdate=eq.${d}&select=student_id`),
-      getAll('absence_totals?select=*&total_days=gte.3&order=total_days.desc')
+      getAll('absence_totals?select=*&order=unexcused_days.desc')
     ]);
     const lateSet=new Set(late.map(x=>x.student_id));
     const eff=abs.filter(a=>!lateSet.has(a.student_id)), conv=abs.filter(a=>lateSet.has(a.student_id));
     const subMap=Object.fromEntries(subs.map(s=>[s.class,s]));
-    TOTALS=totals; const totMap=Object.fromEntries(totals.map(t=>[t.student_id,t.total_days]));
+    TOTALS=totals.filter(t=>t.unexcused_days>=3); const totMap=Object.fromEntries(totals.filter(t=>t.unexcused_days>0).map(t=>[t.student_id,t.unexcused_days])); ALLTOT=Object.fromEntries(totals.map(t=>[t.student_id,t]));
     const perClass=R.classes.map(c=>{ const n=R.byClass[c].length, a=eff.filter(x=>x.class===c).length;
       return {c,n,a,sub:subMap[c],rate:n?a/n*100:0} });
     DATA={d,R,subs,subMap,abs,eff,conv,lateSet,perClass,totMap};
@@ -424,19 +432,19 @@ async function loadAdmin(silent){
 }
 function render(){
   if(!DATA) return;
-  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts})[TAB]();
+  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts, excuse:renderExcuse})[TAB]();
 }
 function stats(){
   const {perClass,eff,conv}=DATA; const sub=perClass.filter(p=>p.sub);
   const students=sub.reduce((a,p)=>a+p.n,0);
-  return {done:sub.length, total:perClass.length, students, absent:eff.length, conv:conv.length, rate:students?(eff.length/students*100):0};
+  return {done:sub.length, total:perClass.length, students, absent:eff.length, excused:eff.filter(a=>a.excused).length, conv:conv.length, rate:students?(eff.length/students*100):0};
 }
 function renderToday(){
   const s=stats(), {perClass}=DATA;
   const pending=perClass.filter(p=>!p.sub).map(p=>p.c);
   let h=`<div class="summary">
     <div><b>${s.done} <small style="font-size:.55em;color:var(--muted)">من ${s.total}</small></b><span>فصول تم رصدها</span></div>
-    <div class="r"><b>${s.absent}</b><span>طالب غائب</span></div>
+    <div class="r"><b>${s.absent}</b><span>طالب غائب${s.excused?` — منهم ${s.excused} بعذر`:""}</span></div>
     <div><b>${s.rate.toFixed(1)}٪</b><span>نسبة الغياب في الفصول المرصودة</span></div>
     <div><b>${s.conv}</b><span>غياب أُلغي لأن الطالب حضر متأخراً</span></div></div>
     <div class="beads" aria-label="مؤشر رصد الفصول">${beads()}</div>`;
@@ -458,7 +466,7 @@ function renderToday(){
 let sheetClass=null;
 function renderSheet(){
   const {R,eff,conv,subMap,totMap}=DATA; sheetClass ||= R.classes[0];
-  const effSet=new Set(eff.map(a=>a.student_id)), convSet=new Set(conv.map(a=>a.student_id));
+  const effMap=Object.fromEntries(eff.map(a=>[a.student_id,a])), convSet=new Set(conv.map(a=>a.student_id));
   const all = sheetClass==='*' ? R.classes : [sheetClass];
   let h=`<div class="toolbar"><select class="t" id="shSel" style="max-width:260px"><option value="*">كل الفصول</option>${R.classes.map(c=>`<option ${c===sheetClass?'selected':''}>${esc(c)}</option>`).join('')}</select>
     <button class="btn sm" id="printSheets">🖨️ طباعة ${sheetClass==='*'?'كشوف كل الفصول':'كشف الفصل'}</button>
@@ -466,9 +474,9 @@ function renderSheet(){
   all.forEach(c=>{
     const sub=subMap[c];
     h+=`<div class="panel"><h2>${esc(c)} ${sub?`<span class="pill ok">رصده ${esc(sub.entered_by||'')}</span>`:'<span class="pill no">لم يُرصد بعد</span>'}</h2>
-      <div class="tbl-wrap"><table><tr><th>م</th><th>اسم الطالب</th><th>الحالة</th><th>إجمالي أيام الغياب</th></tr>`;
+      <div class="tbl-wrap"><table><tr><th>م</th><th>اسم الطالب</th><th>الحالة</th><th>غياب بدون عذر</th></tr>`;
     R.byClass[c].forEach((s,i)=>{
-      const st= effSet.has(s.student_id)?'<td class="abs">غائب</td>' : convSet.has(s.student_id)?'<td class="late">حضر متأخراً</td>' : '<td></td>';
+      const ea=effMap[s.student_id]; const st= ea?(ea.excused?'<td class="exc">غائب بعذر</td>':'<td class="abs">غائب</td>') : convSet.has(s.student_id)?'<td class="late">حضر متأخراً</td>' : '<td></td>';
       const t=totMap[s.student_id]; h+=`<tr><td>${i+1}</td><td>${esc(s.student_name)}</td>${st}<td>${t?`<span class="pill t${tier(t)}">${t}</span>`:''}</td></tr>` });
     h+=`</table></div></div>`;
   });
@@ -478,7 +486,7 @@ function renderSheet(){
   const od=$('#onlyDone'); if(od) od.onchange=e=>ls.set('abs_onlydone',e.target.checked?'1':'');
 }
 function renderMsgs(){
-  const {eff,d,totMap}=DATA; const tpl=ls.get('abs_tpl',DEFAULT_MSG);
+  const {d,totMap}=DATA; const eff=DATA.eff.filter(a=>!a.excused); const nEx=DATA.eff.length-eff.length; const tpl=ls.get('abs_tpl',DEFAULT_MSG);
   const list=eff.filter(a=>!hideSent || !(a.wa_sent||a.sms_sent));
   let h=`<div class="panel"><h2>نص الرسالة</h2>
     <textarea class="t" id="tpl" rows="4">${esc(tpl)}</textarea>
@@ -488,9 +496,9 @@ function renderMsgs(){
     <p class="note">حمّل ملف الأرقام والرسائل ثم ارفعه في لوحة الإرسال الجماعي في حسابكم بالمدار، أو انسخ الأرقام مباشرة. بعد الإرسال اضغط "تم الإرسال عبر المدار" لتوثيقه.</p>
     <div class="toolbar" style="margin:0"><button class="btn sm" id="csvBtn">تنزيل ملف المدار (CSV)</button>
     <button class="btn ghost sm" id="copyNums">نسخ الأرقام</button><button class="btn ghost sm" id="markSms">تم الإرسال عبر المدار</button></div></div>
-    <div class="panel"><h2>واتساب — ${eff.length} غائب</h2>
+    <div class="panel"><h2>واتساب — ${eff.length} غائب بدون عذر</h2>${nEx?`<p class="note">لا تظهر هنا حالات الغياب بعذر (${nEx}).</p>`:""}
     <label class="note"><input type="checkbox" id="hideSent" ${hideSent?'checked':''}> إخفاء من تم إرسال رسالته</label>
-    <div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>الجوال</th><th>مجموع الغياب</th><th></th></tr>`;
+    <div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>الجوال</th><th>غياب بدون عذر</th><th></th></tr>`;
   if(!list.length) h+=`<tr><td colspan="5" class="empty">${eff.length?'تم إرسال جميع الرسائل.':'لا يوجد غياب مسجّل لهذا اليوم.'}</td></tr>`;
   list.forEach(a=>{ const t=totMap[a.student_id];
     h+=`<tr><td>${esc(a.student_name)}</td><td>${esc(a.class)}</td><td dir="ltr">${esc(a.guardian_mobile||'—')}</td>
@@ -524,26 +532,26 @@ function renderMsgs(){
 }
 function renderAlerts(){
   const {d}=DATA; const tpl=ls.get('abs_alert_tpl',DEFAULT_ALERT);
-  const list=TOTALS.filter(t=>!alertFilter || tier(t.total_days)===alertFilter);
-  const cnt=v=>TOTALS.filter(t=>tier(t.total_days)===v).length;
-  const fresh=TOTALS.filter(t=>t.last_date===d && THRESHOLDS.includes(t.total_days));
+  const list=TOTALS.filter(t=>!alertFilter || tier(t.unexcused_days)===alertFilter);
+  const cnt=v=>TOTALS.filter(t=>tier(t.unexcused_days)===v).length;
+  const fresh=TOTALS.filter(t=>t.last_unexcused_date===d && THRESHOLDS.includes(t.unexcused_days));
   let h=`<div class="summary">${THRESHOLDS.map(v=>`<div><b>${cnt(v)}</b><span>${v===15?'15 يوماً فأكثر':`${v} أيام إلى ${[5,10,15][THRESHOLDS.indexOf(v)]-1}`}</span></div>`).join('')}
     <div class="r"><b>${fresh.length}</b><span>بلغوا حداً جديداً في هذا اليوم</span></div></div>
     <div class="chips"><button data-f="0" class="${!alertFilter?'on':''}">الكل (${TOTALS.length})</button>${THRESHOLDS.map(v=>`<button data-f="${v}" class="${alertFilter===v?'on':''}">${v}+</button>`).join('')}</div>
     <div class="panel"><h2>نص رسالة التنبيه</h2><textarea class="t" id="atpl" rows="3">${esc(tpl)}</textarea><p class="note">المتغيرات: {الاسم} {الفصل} {العدد}</p></div>
-    <div class="panel"><div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>أيام الغياب</th><th>آخر غياب</th><th></th></tr>`;
-  if(!list.length) h+=`<tr><td colspan="5" class="empty">لا يوجد طلاب في هذه الفئة.</td></tr>`;
-  list.forEach(t=>{ const isNew=t.last_date===d && THRESHOLDS.includes(t.total_days);
+    <div class="panel"><div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>بدون عذر</th><th>بعذر</th><th>آخر غياب</th><th></th></tr>`;
+  if(!list.length) h+=`<tr><td colspan="6" class="empty">لا يوجد طلاب في هذه الفئة.</td></tr>`;
+  list.forEach(t=>{ const isNew=t.last_unexcused_date===d && THRESHOLDS.includes(t.unexcused_days);
     h+=`<tr><td>${esc(t.student_name)} ${isNew?'<span class="pill new">جديد</span>':''}</td><td>${esc(t.class)}</td>
-      <td><span class="pill t${tier(t.total_days)}">${t.total_days}</span></td><td class="note">${esc(t.last_date)}</td>
+      <td><span class="pill t${tier(t.unexcused_days)}">${t.unexcused_days}</span></td><td>${t.excused_days?`<span class="pill ex">${t.excused_days}</span>`:""}</td><td class="note">${esc(t.last_unexcused_date||"")}</td>
       <td>${t.guardian_mobile?`<button class="btn wa sm" data-al="${esc(t.student_id)}">إبلاغ ولي الأمر</button>`:''}</td></tr>` });
-  h+=`</table></div></div><p class="note">الإجمالي يُحسب من بداية استخدام التطبيق، ولا يشمل الأيام التي سُجّل فيها الطالب متأخراً.</p>`;
+  h+=`</table></div></div><p class="note">التنبيهات تُحسب على الغياب بدون عذر فقط، من بداية استخدام التطبيق، ولا تشمل الأيام التي سُجّل فيها الطالب متأخراً.</p>`;
   $('#aBody').innerHTML=h;
   document.querySelectorAll('.chips [data-f]').forEach(b=>b.onclick=()=>{ alertFilter=+b.dataset.f; renderAlerts() });
   $('#atpl').oninput=e=>ls.set('abs_alert_tpl',e.target.value);
   document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{
     const t=TOTALS.find(x=>x.student_id===b.dataset.al);
-    window.open(`https://wa.me/${intlPhone(t.guardian_mobile)}?text=${encodeURIComponent(fillMsg($('#atpl').value,t,d,t.total_days))}`,'_blank') });
+    window.open(`https://wa.me/${intlPhone(t.guardian_mobile)}?text=${encodeURIComponent(fillMsg($('#atpl').value,t,d,t.unexcused_days))}`,'_blank') });
 }
 
 function greet(){ const hr=+new Date().toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'Asia/Riyadh'}); return hr<12?'صباح الخير':'مساء الخير' }
@@ -583,7 +591,7 @@ function printSheets(which){
   if(typeof which!=='string') which=sheetClass;
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
   const {R,eff,conv,subMap,totMap,d}=DATA;
-  const effSet=new Set(eff.map(a=>a.student_id)), convSet=new Set(conv.map(a=>a.student_id));
+  const effMap=Object.fromEntries(eff.map(a=>[a.student_id,a])), effSet=new Set(Object.keys(effMap)), convSet=new Set(conv.map(a=>a.student_id));
   let list = which==='*' ? R.classes : [which];
   if(which==='*' && ls.get('abs_onlydone','')) list=list.filter(c=>subMap[c]);
   if(!list.length){ toast('لا توجد فصول مرصودة للطباعة'); return }
@@ -593,9 +601,9 @@ function printSheets(which){
     const nAbs=st.filter(s=>effSet.has(s.student_id)).length, nLate=st.filter(s=>convSet.has(s.student_id)).length;
     h+=`<section class="sheet">${rptHead('كشف غياب '+esc(c), d)}
       <div class="meta"><span>عدد الطلاب: <b>${st.length}</b></span><span>الغائبون: <b>${sub?nAbs:'—'}</b></span><span>الحاضرون: <b>${sub?st.length-nAbs:'—'}</b></span>${nLate?`<span>حضر متأخراً: <b>${nLate}</b></span>`:''}<span>${sub?'الراصد: '+esc(sub.entered_by||''):'<b>لم يُرصد الفصل</b>'}</span></div>
-      <table class="sh"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:30mm">الحالة</th><th style="width:24mm">مجموع الغياب</th></tr>
+      <table class="sh"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:30mm">الحالة</th><th style="width:24mm">غياب بدون عذر</th></tr>
       ${st.map((s,i)=>{ const a=effSet.has(s.student_id), l=convSet.has(s.student_id);
-        return `<tr class="${a?'ab':''}"><td>${i+1}</td><td>${esc(s.student_name)}</td><td>${a?'غائب':l?'حضر متأخراً':''}</td><td>${totMap[s.student_id]||''}</td></tr>` }).join('')}
+        return `<tr class="${a?'ab':''}"><td>${i+1}</td><td>${esc(s.student_name)}</td><td>${a?(effMap[s.student_id].excused?'غائب بعذر':'غائب'):l?'حضر متأخراً':''}</td><td>${totMap[s.student_id]||''}</td></tr>` }).join('')}
       </table>
       <div class="sign"><span>معلم الحصة: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div></section>`;
   });
@@ -610,21 +618,74 @@ function doPrint(html){
   window.addEventListener('afterprint',restore);
   setTimeout(()=>{ window.print(); setTimeout(restore,1500) },150);
 }
+
+/* ================= EXCUSES ================= */
+let exSearch='', exResults=null;
+function exRow(a,showDate){
+  return `<div class="exrow ${a.excused?'is-ex':''}"><div class="exinfo"><b>${esc(a.student_name)}</b>
+      <span class="note">${esc(a.class)}${showDate?` · ${dayName(a.vdate)} ${esc(a.vdate)}`:''}</span>
+      ${a.excused&&a.excuse_note?`<span class="note">العذر: ${esc(a.excuse_note)}</span>`:''}</div>
+    <div class="exact">${a.excused?'<span class="pill ex">بعذر</span>':'<span class="pill no">بدون عذر</span>'}
+      <button class="btn sm ${a.excused?'ghost':''}" data-ex="${a.id}">${a.excused?'إلغاء العذر':'تحويل إلى بعذر'}</button></div></div>`;
+}
+function renderExcuse(){
+  const {eff,d}=DATA;
+  let h=`<div class="panel"><h2>غائبو ${dayName(d)} ${hijri(d)} — ${eff.length}</h2>
+    <p class="note" style="margin-top:0">لتغيير غياب يوم آخر غيّر التاريخ في الأعلى، أو ابحث باسم الطالب في الأسفل.</p>
+    ${eff.length?eff.map(a=>exRow(a,false)).join(''):'<div class="empty">لا يوجد غياب مسجّل لهذا اليوم.</div>'}</div>
+    <div class="panel"><h2>بحث عن طالب (كل أيام غيابه)</h2>
+    <div class="toolbar"><input class="t" id="exQ" placeholder="اكتب جزءاً من اسم الطالب" value="${esc(exSearch)}" style="max-width:340px"><button class="btn sm" id="exGo">بحث</button></div>
+    <div id="exRes">${exResults?exTable(exResults):''}</div></div>`;
+  $('#aBody').innerHTML=h;
+  $('#exGo').onclick=exFind; $('#exQ').onkeydown=e=>{ if(e.key==='Enter') exFind() };
+  bindEx();
+}
+function exTable(rows){
+  if(!rows.length) return '<div class="empty">لا يوجد غياب مسجّل بهذا الاسم.</div>';
+  return rows.map(a=>exRow(a,true)).join('');
+}
+async function exFind(){
+  exSearch=$('#exQ').value.trim(); if(exSearch.length<2){ toast('اكتب حرفين على الأقل'); return }
+  $('#exRes').innerHTML='<div class="loading">جاري البحث…</div>';
+  try{ exResults=await api(`absences_effective?student_name=ilike.*${encodeURIComponent(exSearch)}*&select=*&order=vdate.desc&limit=200`); $('#exRes').innerHTML=exTable(exResults); bindEx() }
+  catch(e){ $('#exRes').innerHTML=`<div class="empty">تعذّر البحث: ${esc(e.message)}</div>` }
+}
+function bindEx(){
+  document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>toggleExcuse(+b.dataset.ex));
+}
+async function toggleExcuse(id){
+  const a=[...DATA.eff,...(exResults||[])].find(x=>x.id===id); if(!a) return;
+  let body;
+  if(!a.excused){
+    const note=prompt(`تحويل غياب ${a.student_name} يوم ${dayName(a.vdate)} ${a.vdate} إلى غياب بعذر.\nسبب العذر (اختياري):`,'');
+    if(note===null) return;
+    body={excused:true, excuse_note:note.trim()||null, excused_by:USER, excused_at:new Date().toISOString()};
+  } else {
+    if(!confirm(`إلغاء العذر وإرجاع غياب ${a.student_name} يوم ${a.vdate} إلى بدون عذر؟`)) return;
+    body={excused:false, excuse_note:null, excused_by:USER, excused_at:new Date().toISOString()};
+  }
+  try{
+    await api(`absences?id=eq.${id}`,{method:'PATCH',body,prefer:'return=minimal'});
+    [DATA.eff,(exResults||[])].forEach(list=>list.forEach(x=>{ if(x.id===id) Object.assign(x,body) }));
+    toast(body.excused?'تم تسجيل الغياب بعذر':'أُعيد الغياب إلى بدون عذر');
+    await loadAdmin(true);
+  }catch(e){ toast('تعذّر الحفظ: '+e.message) }
+}
 /* ================= PRINT REPORT ================= */
 function printReport(){
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
   const s=stats(), {d,perClass,eff,R}=DATA;
-  const fresh=TOTALS.filter(t=>t.last_date===d && THRESHOLDS.includes(t.total_days));
+  const fresh=TOTALS.filter(t=>t.last_unexcused_date===d && THRESHOLDS.includes(t.unexcused_days));
   let h=`${rptHead('تقرير الغياب اليومي', d)}
     <table><tr><th>الفصول المرصودة</th><th>عدد الطلاب</th><th>الغائبون</th><th>نسبة الغياب</th><th>غياب أُلغي بسبب التأخر</th></tr>
-    <tr><td>${s.done} من ${s.total}</td><td>${s.students}</td><td>${s.absent}</td><td>${s.rate.toFixed(1)}٪</td><td>${s.conv}</td></tr></table>
+    <tr><td>${s.done} من ${s.total}</td><td>${s.students}</td><td>${s.absent}${s.excused?` (منهم ${s.excused} بعذر)`:''}</td><td>${s.rate.toFixed(1)}٪</td><td>${s.conv}</td></tr></table>
     <h3>الغياب حسب الفصل</h3><table><tr><th>الفصل</th><th>الطلاب</th><th>الغائبون</th><th>النسبة</th><th>الراصد</th></tr>
     ${perClass.map(p=>`<tr><td>${p.c}</td><td>${p.n}</td><td>${p.sub?p.a:'لم يُرصد'}</td><td>${p.sub?p.rate.toFixed(1)+'٪':''}</td><td>${esc(p.sub?.entered_by||'')}</td></tr>`).join('')}</table>
     <h3>أسماء الغائبين</h3><div class="grid2">`;
   R.classes.forEach(c=>{ const a=eff.filter(x=>x.class===c); if(!a.length) return;
-    h+=`<div class="cls"><table><tr><th colspan="3">${c} — ${a.length}</th></tr>${a.map((x,i)=>`<tr><td style="width:24px">${i+1}</td><td>${esc(x.student_name)}</td><td style="width:40px">${DATA.totMap[x.student_id]||''}</td></tr>`).join('')}</table></div>` });
+    h+=`<div class="cls"><table><tr><th colspan="3">${c} — ${a.length}</th></tr>${a.map((x,i)=>`<tr><td style="width:24px">${i+1}</td><td>${esc(x.student_name)}${x.excused?' (بعذر)':''}</td><td style="width:40px">${DATA.totMap[x.student_id]||''}</td></tr>`).join('')}</table></div>` });
   h+=`</div>`;
-  if(fresh.length) h+=`<h3>طلاب بلغوا حداً جديداً اليوم</h3><table><tr><th>الطالب</th><th>الفصل</th><th>أيام الغياب</th></tr>${fresh.map(t=>`<tr><td>${esc(t.student_name)}</td><td>${esc(t.class)}</td><td>${t.total_days}</td></tr>`).join('')}</table>`;
+  if(fresh.length) h+=`<h3>طلاب بلغوا حداً جديداً اليوم</h3><table><tr><th>الطالب</th><th>الفصل</th><th>غياب بدون عذر</th></tr>${fresh.map(t=>`<tr><td>${esc(t.student_name)}</td><td>${esc(t.class)}</td><td>${t.unexcused_days}</td></tr>`).join('')}</table>`;
   h+=`<p style="margin-top:24px">وكيل شؤون الطلاب: ........................ &nbsp;&nbsp;&nbsp; مدير المدرسة: ........................</p>`;
   doPrint(`<table class="pg"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>${h}</td></tr></tbody></table>`);
 }
