@@ -893,7 +893,9 @@ async function renderRemote(){
   document.querySelectorAll('[data-rwk]').forEach(b=>b.onclick=()=>{ const o=perStu[b.dataset.rwk];
     const msg=`ولي أمر الطالب ${o.row.student_name}\nنفيدكم بأن ابنكم غاب هذا الأسبوع عن ${o.a} حصة في الدراسة عن بعد${o.full?`، منها ${o.full} ${o.full>1?'أيام':'يوم'} كامل`:''}.\nنأمل متابعته.\n${SCHOOL}`;
     window.open(`https://wa.me/${intlPhone(o.row.guardian_mobile)}?text=${encodeURIComponent(msg)}`,'_blank') });
-  $('#tAdd').onclick=async()=>{ const names=[...new Set($('#tNames').value.split('\n').map(s=>s.trim()).filter(Boolean))]; if(!names.length) return;
+  $('#tAdd').onclick=async()=>{ const existing=new Set([...document.querySelectorAll('[data-tdel]')].map(x=>x.parentElement.firstChild.nodeValue.trim()));
+    const names=[...new Set($('#tNames').value.split(/[\n،,]+/).map(s=>s.replace(/[✕×xX]+\s*$/,'').replace(/\s+/g,' ').trim()).filter(s=>s.length>1))].filter(n=>!existing.has(n));
+    if(!names.length){ toast('كل الأسماء موجودة مسبقاً في القائمة'); return }
     try{ await api('remote_teachers?on_conflict=name',{method:'POST',body:names.map(n=>({name:n,active:true})),prefer:'resolution=merge-duplicates,return=minimal'}); toast(`تمت إضافة ${names.length} اسم`); renderRemote() }
     catch(e){ toast('تعذّر الإضافة: '+e.message) } };
   document.querySelectorAll('[data-tdel]').forEach(a=>a.onclick=async e=>{ e.preventDefault(); if(!confirm('حذف هذا الاسم من قائمة المعلمين؟')) return;
