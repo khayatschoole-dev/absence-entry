@@ -326,8 +326,9 @@ function show(id){ ['login','teacher','admin'].forEach(s=>$('#'+s).classList.tog
 $('#uname').value = ls.get('abs_user','');
 $('#loginBtn').onclick = login;
 $('#upass').addEventListener('keydown',e=>{ if(e.key==='Enter') login() });
+const normDigits=s=>String(s||'').replace(/[\u0660-\u0669]/g,c=>c.charCodeAt(0)-0x0660).replace(/[\u06F0-\u06F9]/g,c=>c.charCodeAt(0)-0x06F0).replace(/\s+/g,'');
 function login(){
-  const n=$('#uname').value.trim(), p=$('#upass').value.trim();
+  const n=$('#uname').value.trim(), p=normDigits($('#upass').value);
   if(!n){ $('#loginErr').textContent='اكتب اسمك أولاً، يظهر في سجل الرصد.'; return }
   if(p===ADMIN_PASS) ROLE='admin'; else if(p===TEACHER_PASS) ROLE='teacher';
   else { $('#loginErr').textContent='الرمز غير صحيح.'; return }
