@@ -197,7 +197,7 @@ main{padding-top:40px}
 .linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.linkbox code{background:var(--head);padding:6px 10px;border-radius:8px;font-size:.85rem;direction:ltr}
 
 @media print{
-  #report table.wkt th.wk,#report table.wkt td.wk{width:19mm;text-align:center;padding:.55mm 1mm;font-size:9.5pt}
+  #report table.wkt th.wk,#report table.wkt td.wk{width:24mm;text-align:center;padding:.55mm 1mm;font-size:9.5pt}
   #report table.wkt th.wk small{font-weight:400;font-size:8pt}
   #report table.wkt td.nm{font-size:10pt}
   #report table.wkt td.ab{font-weight:700;background:#e6eeec}
@@ -623,15 +623,21 @@ function rptHead(title, d){
 async function printSheets(which){
   if(typeof which!=='string') which=sheetClass;
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
-  const {R,d}=DATA, [ws,we]=weekOf(d), days=[0,1,2,3,4].map(i=>addDays(ws,i));
+  const {R,d}=DATA, [ws]=weekOf(d), days=[0,1,2].map(i=>addDays(ws,i)), we=days[2];   // الأحد والاثنين والثلاثاء
   toast('جاري تجهيز الكشوف…');
-  let abs,subs,late;
+  let abs,subs,late,rdays,ratt,rsess;
   try{
-    [abs,subs,late]=await Promise.all([
+    [abs,subs,late,rdays,ratt,rsess]=await Promise.all([
       getAll(`absences_effective?vdate=gte.${ws}&vdate=lte.${we}&select=student_id,vdate,excused`),
       getAll(`absence_submissions?vdate=gte.${ws}&vdate=lte.${we}&select=class,vdate`),
-      getAll(`late_arrivals?vdate=gte.${ws}&vdate=lte.${we}&select=student_id,vdate`)]);
+      getAll(`late_arrivals?vdate=gte.${ws}&vdate=lte.${we}&select=student_id,vdate`),
+      getAll(`remote_days?vdate=gte.${ws}&vdate=lte.${we}&select=vdate`),
+      getAll(`remote_attendance?vdate=gte.${ws}&vdate=lte.${we}&status=eq.absent&select=student_id,vdate`),
+      getAll(`remote_sessions?vdate=gte.${ws}&vdate=lte.${we}&select=class,vdate`)]);
   }catch(e){ toast('تعذّر تحميل بيانات الأسبوع: '+e.message); return }
+  const RD=new Set(rdays.map(r=>r.vdate));                       // الثلاثاء عن بعد في أسابيع التناوب
+  const RP={}; ratt.forEach(a=>{ const k=a.student_id+'|'+a.vdate; RP[k]=(RP[k]||0)+1 });
+  const RS=new Set(rsess.map(s=>s.class+'|'+s.vdate));
   const A={}; abs.forEach(a=>A[a.student_id+'|'+a.vdate]=a.excused?'ع':'غ');
   const L=new Set(late.map(l=>l.student_id+'|'+l.vdate));
   const S=new Set(subs.map(s=>s.class+'|'+s.vdate));
@@ -644,7 +650,12 @@ async function printSheets(which){
     const st=R.byClass[c]||[];
     let totAbs=0;
     const rows=st.map((s,i)=>{ let n=0;
-      const cells=days.map(x=>{ const k=s.student_id+'|'+x, v=A[k];
+      const cells=days.map(x=>{ const k=s.student_id+'|'+x;
+        if(RD.has(x)){ const np=RP[k]||0;
+          if(np>=R_FULLDAY){ n++; return `<td class="wk ab">غائب <small>(${np}/${R_PERIODS})</small></td>` }
+          if(np) return `<td class="wk lt">${np===1?'حصة واحدة':np===2?'حصتان':np+' حصص'}</td>`;
+          return `<td class="wk${RS.has(c+'|'+x)?'':' nr'}"></td>` }
+        const v=A[k];
         if(v==='غ'){ n++; return '<td class="wk ab">غائب</td>' }
         if(v==='ع'){ n++; return '<td class="wk ex">بعذر</td>' }
         if(L.has(k)) return '<td class="wk lt">متأخر</td>';
@@ -652,11 +663,12 @@ async function printSheets(which){
       totAbs+=n;
       return `<tr><td>${i+1}</td><td class="nm">${esc(s.student_name)}</td>${cells}<td class="wk">${n||''}</td></tr>` }).join('');
     h+=`<section class="sheet">${rptHead('كشف الغياب الأسبوعي — '+esc(c), d)}
-      <div class="meta"><span>الأسبوع: من الأحد ${hijri(ws)} إلى الخميس ${hijri(we)}</span><span>عدد الطلاب: <b>${st.length}</b></span><span>مجموع حالات الغياب: <b>${totAbs}</b></span></div>
+      <div class="meta"><span>الأسبوع: من الأحد ${hijri(ws)} إلى الثلاثاء ${hijri(we)}</span><span>عدد الطلاب: <b>${st.length}</b></span><span>مجموع حالات الغياب: <b>${totAbs}</b></span></div>
       <table class="sh wkt"><tr><th style="width:8mm">م</th><th>اسم الطالب</th>
-        ${days.map(x=>`<th class="wk">${dayName(x)}<br><small>${dShort(x)}</small>${S.has(c+'|'+x)?'':'<br><small>لم يُرصد</small>'}</th>`).join('')}<th class="wk" style="width:13mm">المجموع</th></tr>
+        ${days.map(x=>{ const rem=RD.has(x), ok=rem?RS.has(c+'|'+x):S.has(c+'|'+x);
+          return `<th class="wk">${dayName(x)}<br><small>${dShort(x)}${rem?' — عن بعد':''}</small>${ok?'':'<br><small>لم يُرصد</small>'}</th>` }).join('')}<th class="wk" style="width:13mm">المجموع</th></tr>
       ${rows}</table>
-      <div class="legend">غائب = غياب بدون عذر · بعذر = غياب بعذر · متأخر = حضر متأخراً · الخانة المظللة = يوم لم يُرصد فيه الفصل</div>
+      <div class="legend">غائب = غياب بدون عذر · بعذر = غياب بعذر · متأخر = حضر متأخراً · الخانة المظللة = يوم لم يُرصد فيه الفصل${days.some(x=>RD.has(x))?` · في يوم الدراسة عن بعد يُحتسب الطالب غائباً إذا غاب ${R_FULLDAY} حصص فأكثر من ${R_PERIODS}`:''}</div>
       <div class="sign"><span>رائد الفصل: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div></section>`;
   });
   doPrint(h);
