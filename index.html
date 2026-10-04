@@ -261,6 +261,7 @@ main{padding-top:40px}
       <button data-tab="sheet">كشف الفصول</button>
       <button data-tab="msgs">إرسال لأولياء الأمور</button>
       <button data-tab="excuse">الأعذار</button>
+      <button data-tab="standing">أعذار دائمة</button>
       <button data-tab="query">استعلام</button>
       <button data-tab="remote">عن بعد</button>
       <button data-tab="alerts">تنبيهات التراكم</button>
@@ -465,7 +466,7 @@ async function loadAdmin(silent){
 }
 function render(){
   if(!DATA) return;
-  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts, excuse:renderExcuse, query:renderQuery, remote:renderRemote})[TAB]();
+  ({today:renderToday, sheet:renderSheet, msgs:renderMsgs, alerts:renderAlerts, excuse:renderExcuse, standing:renderStanding, query:renderQuery, remote:renderRemote})[TAB]();
 }
 function stats(){
   const {perClass,eff,conv}=DATA; const sub=perClass.filter(p=>p.sub);
@@ -956,6 +957,53 @@ function printRemoteWeek(){
     ${c.wList.map((o,i)=>`<tr class="${o.full?'ab':''}"><td>${i+1}</td><td>${esc(o.row.student_name)}</td><td>${esc(o.row.class)}</td><td>${o.full||''}</td><td>${o.a||''}</td><td>${o.l||''}</td></tr>`).join('')}</table>`:'<p>لا يوجد غياب مسجّل.</p>'}
     <div class="sign"><span>وكيل شؤون الطلاب: ......................</span><span>مدير المدرسة: ......................</span></div>`;
   doPrint(pgWrap(h));
+}
+
+/* ================= STANDING (year-long) EXCUSES ================= */
+let stQ='';
+async function renderStanding(){
+  $('#aBody').innerHTML='<div class="loading">جاري التحميل…</div>';
+  let list;
+  try{ list=await api('standing_excuses?select=*&order=class,student_name') }catch(e){ $('#aBody').innerHTML=`<div class="empty">تعذّر التحميل: ${esc(e.message)}</div>`; return }
+  const have=new Set(list.map(x=>x.student_id));
+  let h=`<div class="panel"><h2>طلاب لديهم عذر طوال العام (${list.length})</h2>
+    <p class="note" style="margin-top:0">أي غياب يُرصد لهؤلاء الطلاب يُسجَّل تلقائياً <b>بعذر</b>، فلا تصل عنه رسالة لولي الأمر ولا يدخل في تنبيهات التراكم، ويظهر في الكشوف "بعذر".</p>
+    ${list.length?list.map(s=>`<div class="exrow is-ex"><div class="exinfo"><b>${esc(s.student_name)}</b><span class="note">${esc(s.class||'')} · ${esc(s.reason)}${s.from_date||s.to_date?` · ${s.from_date||'…'} إلى ${s.to_date||'…'}`:' · طوال العام'}</span></div>
+      <div class="exact"><button class="btn ghost sm" data-stedit="${esc(s.student_id)}">تعديل السبب</button><button class="btn ghost sm" data-stdel="${esc(s.student_id)}" style="color:var(--red)">إزالة</button></div></div>`).join('')
+      :'<div class="empty">لا يوجد طلاب بعد.</div>'}</div>
+    <div class="panel"><h2>إضافة طالب</h2>
+      <div class="qform"><label style="flex:1;min-width:200px">اسم الطالب أو رقم الهوية<input id="stQ" value="${esc(stQ)}" placeholder="اكتب جزءاً من الاسم" autocomplete="off"></label>
+      <label style="flex:1;min-width:160px">سبب العذر<input id="stReason" value="عذر مرضي دائم"></label></div>
+      <div class="qhits" id="stHits"></div></div>`;
+  $('#aBody').innerHTML=h;
+  const hits=()=>{ const q=$('#stQ').value.trim(); stQ=q; const box=$('#stHits'); if(q.length<2){ box.innerHTML=''; return }
+    const r=DATA.R.list.filter(s=>(s.student_name.includes(q)||String(s.student_id).includes(q))&&!have.has(s.student_id)).slice(0,10);
+    box.innerHTML=r.length?r.map(s=>`<button data-stadd="${esc(s.student_id)}">${esc(s.student_name)}<span>${esc(s.class_label)} · إضافة</span></button>`).join(''):'<div class="empty">لا يوجد طالب مطابق، أو أنه مضاف مسبقاً.</div>';
+    box.querySelectorAll('[data-stadd]').forEach(b=>b.onclick=()=>stAdd(b.dataset.stadd)) };
+  $('#stQ').oninput=hits; if(stQ) hits();
+  document.querySelectorAll('[data-stdel]').forEach(b=>b.onclick=()=>stDel(list.find(x=>x.student_id===b.dataset.stdel)));
+  document.querySelectorAll('[data-stedit]').forEach(b=>b.onclick=async()=>{ const s=list.find(x=>x.student_id===b.dataset.stedit);
+    const r=prompt(`سبب العذر للطالب ${s.student_name}:`,s.reason); if(r===null||!r.trim()) return;
+    try{ await api(`standing_excuses?student_id=eq.${encodeURIComponent(s.student_id)}`,{method:'PATCH',body:{reason:r.trim()},prefer:'return=minimal'});
+      await api(`absences?student_id=eq.${encodeURIComponent(s.student_id)}&excused_by=eq.${encodeURIComponent('عذر دائم')}`,{method:'PATCH',body:{excuse_note:r.trim()},prefer:'return=minimal'});
+      toast('تم التعديل'); renderStanding() }catch(e){ toast('تعذّر الحفظ: '+e.message) } });
+}
+async function stAdd(sid){
+  const s=DATA.R.byId[sid]; const reason=($('#stReason').value||'').trim()||'عذر مرضي دائم';
+  if(!confirm(`إضافة ${s.student_name} (${s.class_label}) إلى الأعذار الدائمة؟\nسيُحوَّل غيابه السابق والقادم إلى "بعذر".`)) return;
+  try{
+    await api('standing_excuses',{method:'POST',body:{student_id:sid,student_name:s.student_name,class:s.class_label,reason,created_by:USER},prefer:'return=minimal'});
+    await api(`absences?student_id=eq.${encodeURIComponent(sid)}&excused=eq.false`,{method:'PATCH',body:{excused:true,excuse_note:reason,excused_by:'عذر دائم',excused_at:new Date().toISOString()},prefer:'return=minimal'});
+    stQ=''; toast('تمت الإضافة'); await loadAdmin(true); TAB='standing'; renderStanding();
+  }catch(e){ toast('تعذّر الإضافة: '+e.message) }
+}
+async function stDel(s){
+  if(!confirm(`إزالة ${s.student_name} من الأعذار الدائمة؟\nالغياب الذي سُجّل بعذر تلقائياً سيعود "بدون عذر".`)) return;
+  try{
+    await api(`standing_excuses?student_id=eq.${encodeURIComponent(s.student_id)}`,{method:'DELETE'});
+    await api(`absences?student_id=eq.${encodeURIComponent(s.student_id)}&excused_by=eq.${encodeURIComponent('عذر دائم')}`,{method:'PATCH',body:{excused:false,excuse_note:null,excused_by:USER,excused_at:new Date().toISOString()},prefer:'return=minimal'});
+    toast('تمت الإزالة'); await loadAdmin(true); TAB='standing'; renderStanding();
+  }catch(e){ toast('تعذّر الإزالة: '+e.message) }
 }
 /* ================= PRINT REPORT ================= */
 function printReport(){
