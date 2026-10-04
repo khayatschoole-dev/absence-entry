@@ -195,6 +195,18 @@ main{padding-top:40px}
 .rgrid td:first-child,.rgrid th:first-child{text-align:right;white-space:nowrap}
 .rgrid td.c0{color:var(--green);font-weight:700}.rgrid td.c1{color:var(--red);font-weight:800;background:var(--redbg)}.rgrid td.cn{color:#c3cfcc}
 .linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.linkbox code{background:var(--head);padding:6px 10px;border-radius:8px;font-size:.85rem;direction:ltr}
+
+@media print{
+  #report table.wkt th.wk,#report table.wkt td.wk{width:19mm;text-align:center;padding:.55mm 1mm;font-size:9.5pt}
+  #report table.wkt th.wk small{font-weight:400;font-size:8pt}
+  #report table.wkt td.nm{font-size:10pt}
+  #report table.wkt td.ab{font-weight:700;background:#e6eeec}
+  #report table.wkt td.ex{font-weight:700}
+  #report table.wkt td.lt{font-size:8.5pt}
+  #report table.wkt td.nr{background:#f2f2f2}
+  #report table.wkt td,#report table.wkt th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #report .legend{font-size:8.5pt;margin-top:2mm}
+}
 </style>
 </head>
 <body>
@@ -242,7 +254,7 @@ main{padding-top:40px}
       <span style="flex:1"></span>
       <button class="btn ghost sm" id="refreshBtn">تحديث</button>
       <button class="btn sm" id="printBtn">التقرير اليومي PDF</button>
-      <button class="btn sm" id="printAllBtn">طباعة كشوف جميع الفصول</button>
+      <button class="btn sm" id="printAllBtn">طباعة الكشوف الأسبوعية لجميع الفصول</button>
     </div>
     <nav class="tabs" role="tablist">
       <button data-tab="today" class="on">إحصائية اليوم</button>
@@ -490,7 +502,7 @@ function renderSheet(){
   const effMap=Object.fromEntries(eff.map(a=>[a.student_id,a])), convSet=new Set(conv.map(a=>a.student_id));
   const all = sheetClass==='*' ? R.classes : [sheetClass];
   let h=`<div class="toolbar"><select class="t" id="shSel" style="max-width:260px"><option value="*">كل الفصول</option>${R.classes.map(c=>`<option ${c===sheetClass?'selected':''}>${esc(c)}</option>`).join('')}</select>
-    <button class="btn sm" id="printSheets">🖨️ طباعة ${sheetClass==='*'?'كشوف كل الفصول':'كشف الفصل'}</button>
+    <button class="btn sm" id="printSheets">🖨️ طباعة ${sheetClass==='*'?'الكشوف الأسبوعية لكل الفصول':'الكشف الأسبوعي للفصل'}</button>
     ${sheetClass==='*'?`<label class="note"><input type="checkbox" id="onlyDone" ${ls.get('abs_onlydone','')?'checked':''}> الفصول المرصودة فقط</label>`:''}</div>`;
   all.forEach(c=>{
     const sub=subMap[c];
@@ -608,25 +620,44 @@ function rptHead(title, d){
 }
 
 /* ================= PRINT CLASS SHEETS (one class per page) ================= */
-function printSheets(which){
+async function printSheets(which){
   if(typeof which!=='string') which=sheetClass;
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
-  const {R,eff,conv,subMap,totMap,d}=DATA;
-  const effMap=Object.fromEntries(eff.map(a=>[a.student_id,a])), effSet=new Set(Object.keys(effMap)), convSet=new Set(conv.map(a=>a.student_id));
+  const {R,d}=DATA, [ws,we]=weekOf(d), days=[0,1,2,3,4].map(i=>addDays(ws,i));
+  toast('جاري تجهيز الكشوف…');
+  let abs,subs,late;
+  try{
+    [abs,subs,late]=await Promise.all([
+      getAll(`absences_effective?vdate=gte.${ws}&vdate=lte.${we}&select=student_id,vdate,excused`),
+      getAll(`absence_submissions?vdate=gte.${ws}&vdate=lte.${we}&select=class,vdate`),
+      getAll(`late_arrivals?vdate=gte.${ws}&vdate=lte.${we}&select=student_id,vdate`)]);
+  }catch(e){ toast('تعذّر تحميل بيانات الأسبوع: '+e.message); return }
+  const A={}; abs.forEach(a=>A[a.student_id+'|'+a.vdate]=a.excused?'ع':'غ');
+  const L=new Set(late.map(l=>l.student_id+'|'+l.vdate));
+  const S=new Set(subs.map(s=>s.class+'|'+s.vdate));
   let list = which==='*' ? R.classes : [which];
-  if(which==='*' && ls.get('abs_onlydone','')) list=list.filter(c=>subMap[c]);
-  if(!list.length){ toast('لا توجد فصول مرصودة للطباعة'); return }
+  if(which==='*' && ls.get('abs_onlydone','')) list=list.filter(c=>days.some(x=>S.has(c+'|'+x)));
+  if(!list.length){ toast('لا توجد فصول مرصودة هذا الأسبوع'); return }
+  const dShort=x=>{ try{ return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn',{day:'numeric',month:'numeric'}).format(new Date(x+'T12:00:00')) }catch(e){ return x.slice(5) } };
   let h='';
   list.forEach(c=>{
-    const st=R.byClass[c], sub=subMap[c];
-    const nAbs=st.filter(s=>effSet.has(s.student_id)).length, nLate=st.filter(s=>convSet.has(s.student_id)).length;
-    h+=`<section class="sheet">${rptHead('كشف غياب '+esc(c), d)}
-      <div class="meta"><span>عدد الطلاب: <b>${st.length}</b></span><span>الغائبون: <b>${sub?nAbs:'—'}</b></span><span>الحاضرون: <b>${sub?st.length-nAbs:'—'}</b></span>${nLate?`<span>حضر متأخراً: <b>${nLate}</b></span>`:''}<span>${sub?'الراصد: '+esc(sub.entered_by||''):'<b>لم يُرصد الفصل</b>'}</span></div>
-      <table class="sh"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:30mm">الحالة</th><th style="width:24mm">غياب بدون عذر</th></tr>
-      ${st.map((s,i)=>{ const a=effSet.has(s.student_id), l=convSet.has(s.student_id);
-        return `<tr class="${a?'ab':''}"><td>${i+1}</td><td>${esc(s.student_name)}</td><td>${a?(effMap[s.student_id].excused?'غائب بعذر':'غائب'):l?'حضر متأخراً':''}</td><td>${totMap[s.student_id]||''}</td></tr>` }).join('')}
-      </table>
-      <div class="sign"><span>معلم الحصة: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div></section>`;
+    const st=R.byClass[c]||[];
+    let totAbs=0;
+    const rows=st.map((s,i)=>{ let n=0;
+      const cells=days.map(x=>{ const k=s.student_id+'|'+x, v=A[k];
+        if(v==='غ'){ n++; return '<td class="wk ab">غائب</td>' }
+        if(v==='ع'){ n++; return '<td class="wk ex">بعذر</td>' }
+        if(L.has(k)) return '<td class="wk lt">متأخر</td>';
+        return `<td class="wk${S.has(c+'|'+x)?'':' nr'}"></td>` }).join('');
+      totAbs+=n;
+      return `<tr><td>${i+1}</td><td class="nm">${esc(s.student_name)}</td>${cells}<td class="wk">${n||''}</td></tr>` }).join('');
+    h+=`<section class="sheet">${rptHead('كشف الغياب الأسبوعي — '+esc(c), d)}
+      <div class="meta"><span>الأسبوع: من الأحد ${hijri(ws)} إلى الخميس ${hijri(we)}</span><span>عدد الطلاب: <b>${st.length}</b></span><span>مجموع حالات الغياب: <b>${totAbs}</b></span></div>
+      <table class="sh wkt"><tr><th style="width:8mm">م</th><th>اسم الطالب</th>
+        ${days.map(x=>`<th class="wk">${dayName(x)}<br><small>${dShort(x)}</small>${S.has(c+'|'+x)?'':'<br><small>لم يُرصد</small>'}</th>`).join('')}<th class="wk" style="width:13mm">المجموع</th></tr>
+      ${rows}</table>
+      <div class="legend">غائب = غياب بدون عذر · بعذر = غياب بعذر · متأخر = حضر متأخراً · الخانة المظللة = يوم لم يُرصد فيه الفصل</div>
+      <div class="sign"><span>رائد الفصل: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div></section>`;
   });
   doPrint(h);
 }
