@@ -128,7 +128,11 @@ td.exc{color:#2b6cb0;font-weight:700}
   #report th{background:#eee}
   #report th,#report td{border:1px solid #999;padding:4px 6px;white-space:normal}
   #report h3{margin:14px 0 6px;font-size:12pt;break-after:avoid}
-  #report .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #report table.abl td,#report table.abl th{padding:.6mm 2mm;font-size:10pt;line-height:1.25}
+  #report table.abl th small{font-weight:400;font-size:8pt}
+  #report table.abl tr.grp td{background:#e6eeec;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact;break-after:avoid}
+  #report table.abl tr.grp span{font-weight:400}
+  #report table.abl tr{break-inside:avoid}
   #report .cls{break-inside:avoid}
 }
 
@@ -1015,10 +1019,15 @@ function printReport(){
     <tr><td>${s.done} من ${s.total}</td><td>${s.students}</td><td>${s.absent}${s.excused?` (منهم ${s.excused} بعذر)`:''}</td><td>${s.rate.toFixed(1)}٪</td><td>${s.conv}</td></tr></table>
     <h3>الغياب حسب الفصل</h3><table><tr><th>الفصل</th><th>الطلاب</th><th>الغائبون</th><th>النسبة</th><th>الراصد</th></tr>
     ${perClass.map(p=>`<tr><td>${p.c}</td><td>${p.n}</td><td>${p.sub?p.a:'لم يُرصد'}</td><td>${p.sub?p.rate.toFixed(1)+'٪':''}</td><td>${esc(p.sub?.entered_by||'')}</td></tr>`).join('')}</table>
-    <h3>أسماء الغائبين</h3><div class="grid2">`;
-  R.classes.forEach(c=>{ const a=eff.filter(x=>x.class===c); if(!a.length) return;
-    h+=`<div class="cls"><table><tr><th colspan="3">${c} — ${a.length}</th></tr>${a.map((x,i)=>`<tr><td style="width:24px">${i+1}</td><td>${esc(x.student_name)}${x.excused?' (بعذر)':''}</td><td style="width:40px">${DATA.totMap[x.student_id]||''}</td></tr>`).join('')}</table></div>` });
-  h+=`</div>`;
+    <h3>أسماء الغائبين</h3>`;
+  if(eff.length){
+    let n=0;
+    h+=`<table class="abl"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:24mm">الحالة</th><th style="width:26mm">غياب بدون عذر<br><small>منذ بداية الرصد</small></th></tr>`;
+    R.classes.forEach(c=>{ const a=eff.filter(x=>x.class===c); if(!a.length) return;
+      h+=`<tr class="grp"><td colspan="4">${c} <span>— عدد الغائبين: ${a.length}</span></td></tr>`;
+      a.forEach(x=>{ n++; h+=`<tr><td>${n}</td><td>${esc(x.student_name)}</td><td>${x.excused?'بعذر':'غائب'}</td><td>${DATA.totMap[x.student_id]||''}</td></tr>` }) });
+    h+=`</table>`;
+  } else h+=`<p>لا يوجد غياب مسجّل.</p>`;
   if(fresh.length) h+=`<h3>طلاب بلغوا حداً جديداً اليوم</h3><table><tr><th>الطالب</th><th>الفصل</th><th>غياب بدون عذر</th></tr>${fresh.map(t=>`<tr><td>${esc(t.student_name)}</td><td>${esc(t.class)}</td><td>${t.unexcused_days}</td></tr>`).join('')}</table>`;
   h+=`<p style="margin-top:24px">وكيل شؤون الطلاب: ........................ &nbsp;&nbsp;&nbsp; مدير المدرسة: ........................</p>`;
   doPrint(`<table class="pg"><thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td>${h}</td></tr></tbody></table>`);
