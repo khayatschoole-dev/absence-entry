@@ -212,6 +212,12 @@ main{padding-top:40px}
   #report .legend{font-size:8.5pt;margin-top:2mm}
 }
 .ro .ed{display:none!important}
+
+.tuebox{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:5px 10px}
+.tuebox .lbl{font-size:.85rem;font-weight:700;color:var(--ink)}
+.tuebox .seg{margin:0;border:0;padding:0;background:#eef3f2}
+.tuebox .seg button{padding:6px 14px;font-size:.88rem}
+.tuebox .seg button.on.rm{background:#2b6cb0}
 </style>
 </head>
 <body>
@@ -260,6 +266,7 @@ main{padding-top:40px}
       <button class="btn ghost sm" id="refreshBtn">تحديث</button>
       <button class="btn sm" id="printBtn">التقرير اليومي PDF</button>
       <button class="btn sm" id="printAllBtn">طباعة الكشوف الأسبوعية لجميع الفصول</button>
+      <div class="tuebox" id="tueBox"></div>
     </div>
     <nav class="tabs" role="tablist">
       <button data-go="roll" class="ed" style="background:var(--green);color:#fff;border-color:var(--green)">✎ رصد الغياب</button>
@@ -465,6 +472,7 @@ function initAdmin(){
 }
 async function loadAdmin(silent){
   const d=$('#aDate').value; $('#aHijri').textContent=`${dayName(d)} — ${hijri(d)}`;
+  if(!silent) renderTue();
   if(!silent) $('#aBody').innerHTML='<div class="loading">جاري التحميل…</div>';
   try{
     const [R, subs, abs, late, totals] = await Promise.all([
@@ -949,7 +957,7 @@ async function renderRemote(){
   if($('#rToggle')) $('#rToggle').onclick=async()=>{ if(!roGuard()) return; try{
       if(isRemote){ if(!confirm('إلغاء يوم الدراسة عن بعد؟ يُغلق الرصد للمعلمين، ويبقى ما رُصد محفوظاً.')) return; await api(`remote_days?vdate=eq.${d}`,{method:'DELETE'}) }
       else await api('remote_days',{method:'POST',body:{vdate:d,created_by:USER},prefer:'return=minimal'});
-      renderRemote() }catch(e){ toast('تعذّر الحفظ: '+e.message) } };
+      renderRemote(); renderTue() }catch(e){ toast('تعذّر الحفظ: '+e.message) } };
   $('#rCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(REMOTE_URL); toast('تم نسخ الرابط') }catch(e){ prompt('انسخ الرابط:',REMOTE_URL) } };
   $('#rCls').onchange=e=>{ rClass=e.target.value; renderRemote() };
   $('#rCodeSave').onclick=async()=>{ if(!roGuard()) return; const v=$('#rCodeNew').value.trim(); if(v.length<4){ toast('الرمز 4 خانات على الأقل'); return }
@@ -1030,6 +1038,28 @@ async function stDel(s){
     await api(`absences?student_id=eq.${encodeURIComponent(s.student_id)}&excused_by=eq.${encodeURIComponent('عذر دائم')}`,{method:'PATCH',body:{excused:false,excuse_note:null,excused_by:USER,excused_at:new Date().toISOString()},prefer:'return=minimal'});
     toast('تمت الإزالة'); await loadAdmin(true); TAB='standing'; renderStanding();
   }catch(e){ toast('تعذّر الإزالة: '+e.message) }
+}
+
+/* ===== Tuesday of the selected week: in-person / remote switch ===== */
+async function renderTue(){
+  const box=$('#tueBox'); if(!box) return;
+  const d=$('#aDate').value; if(!d) return;
+  const tue=addDays(weekOf(d)[0],2);
+  let remote=false;
+  try{ remote=(await api(`remote_days?vdate=eq.${tue}&select=vdate`)).length>0 }catch(e){ box.innerHTML='<span class="note">تعذّر قراءة حالة الثلاثاء</span>'; return }
+  box.innerHTML=`<span class="lbl">ثلاثاء هذا الأسبوع (${hijri(tue)}):</span>
+    <div class="seg"><button data-tue="0" class="${remote?'':'on'}">حضوري</button><button data-tue="1" class="${remote?'on rm':''}">عن بعد</button></div>
+    <span class="note">${remote?'لا يظهر في الكشف الأسبوعي':'يظهر في الكشف الأسبوعي'}</span>`;
+  box.querySelectorAll('[data-tue]').forEach(b=>b.onclick=async()=>{
+    const want=b.dataset.tue==='1'; if(want===remote) return;
+    if(!roGuard()) return;
+    try{
+      if(want) await api('remote_days',{method:'POST',body:{vdate:tue,created_by:USER},prefer:'resolution=ignore-duplicates,return=minimal'});
+      else await api(`remote_days?vdate=eq.${tue}`,{method:'DELETE'});
+      toast(want?'الثلاثاء عن بعد — حُذف من الكشف الأسبوعي، وفُتح رصده في تطبيق الغياب عن بعد':'الثلاثاء حضوري — يظهر في الكشف الأسبوعي');
+      renderTue(); if(TAB==='remote') renderRemote();
+    }catch(e){ toast('تعذّر الحفظ: '+e.message) }
+  });
 }
 /* ================= PRINT REPORT ================= */
 function printReport(){
