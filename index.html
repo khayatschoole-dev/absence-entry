@@ -158,7 +158,7 @@ main{padding-top:40px}
 @media print{
   #report .sheet{break-after:page;page-break-after:always}
   #report .sheet:last-child{break-after:auto;page-break-after:auto}
-  #report .meta{display:flex;flex-wrap:wrap;gap:6mm;margin:0 0 3mm;font-size:10.5pt}
+  #report .meta{display:flex;flex-wrap:wrap;gap:2mm 5mm;margin:0 0 2mm;font-size:10pt}
   html,body{background:#fff!important}#report table.sh td,#report table.sh th{padding:.55mm 2mm;font-size:10pt;line-height:1.2}#report table.sh th{white-space:nowrap}#report .sheet .rh{margin-bottom:3mm}
   #report table.sh tr.ab td{background:#e6eeec;font-weight:400;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   #report table.sh tr.ab td:nth-child(3){font-weight:700}
@@ -638,7 +638,7 @@ function rptHead(title, d){
 async function printSheets(which){
   if(typeof which!=='string') which=sheetClass;
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
-  const {R,d}=DATA, [ws]=weekOf(d), days=[0,1,2].map(i=>addDays(ws,i)), we=days[2];   // الأحد والاثنين والثلاثاء
+  const {R,d}=DATA, [ws]=weekOf(d), we=addDays(ws,2); let days=[0,1,2].map(i=>addDays(ws,i));   // الأحد والاثنين والثلاثاء
   toast('جاري تجهيز الكشوف…');
   let abs,subs,late,rdays,ratt,rsess;
   try{
@@ -650,7 +650,9 @@ async function printSheets(which){
       getAll(`remote_attendance?vdate=gte.${ws}&vdate=lte.${we}&status=eq.absent&select=student_id,vdate`),
       getAll(`remote_sessions?vdate=gte.${ws}&vdate=lte.${we}&select=class,vdate`)]);
   }catch(e){ toast('تعذّر تحميل بيانات الأسبوع: '+e.message); return }
-  const RD=new Set(rdays.map(r=>r.vdate));                       // الثلاثاء عن بعد في أسابيع التناوب
+  const RD=new Set(rdays.map(r=>r.vdate));
+  days=days.filter(x=>!RD.has(x));   // الثلاثاء عن بعد في أسابيع التناوب لا يظهر في الكشف الحضوري
+  const lastDay=days[days.length-1];
   const RP={}; ratt.forEach(a=>{ const k=a.student_id+'|'+a.vdate; RP[k]=(RP[k]||0)+1 });
   const RS=new Set(rsess.map(s=>s.class+'|'+s.vdate));
   const A={}; abs.forEach(a=>A[a.student_id+'|'+a.vdate]=a.excused?'ع':'غ');
@@ -678,7 +680,7 @@ async function printSheets(which){
       totAbs+=n;
       return `<tr><td>${i+1}</td><td class="nm">${esc(s.student_name)}</td>${cells}<td class="wk">${n||''}</td></tr>` }).join('');
     h+=`<section class="sheet">${rptHead('كشف الغياب الأسبوعي — '+esc(c), d)}
-      <div class="meta"><span>الأسبوع: من الأحد ${hijri(ws)} إلى الثلاثاء ${hijri(we)}</span><span>عدد الطلاب: <b>${st.length}</b></span><span>مجموع حالات الغياب: <b>${totAbs}</b></span></div>
+      <div class="meta"><span>الأسبوع: من الأحد ${hijri(ws)} إلى ${dayName(lastDay)} ${hijri(lastDay)}${RD.has(we)?' — الثلاثاء عن بعد':''}</span><span>عدد الطلاب: <b>${st.length}</b></span><span>مجموع حالات الغياب: <b>${totAbs}</b></span></div>
       <table class="sh wkt"><tr><th style="width:8mm">م</th><th>اسم الطالب</th>
         ${days.map(x=>{ const rem=RD.has(x), ok=rem?RS.has(c+'|'+x):S.has(c+'|'+x);
           return `<th class="wk">${dayName(x)}<br><small>${dShort(x)}${rem?' — عن بعد':''}</small>${ok?'':'<br><small>لم يُرصد</small>'}</th>` }).join('')}<th class="wk" style="width:13mm">المجموع</th></tr>
