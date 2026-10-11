@@ -375,7 +375,13 @@ async function openClasses(){
   $('#tSub').textContent=`${greet()} أ. ${USER.split(' ')[0]} — ${dayName(d)} ${hijri(d)}`;
   box.innerHTML='<div class="loading">جاري تحميل الفصول…</div>';
   try{
-    const [R, subs] = await Promise.all([roster(), api(`absence_submissions?vdate=eq.${d}&select=class,absent_count`)]);
+    const [R, subs, rday] = await Promise.all([roster(), api(`absence_submissions?vdate=eq.${d}&select=class,absent_count`), api(`remote_days?vdate=eq.${d}&select=vdate`)]);
+    if(isFixedRemote(d) || rday.length){
+      box.innerHTML=`<div class="panel"><h2>اليوم دراسة عن بعد</h2><p class="note" style="margin-top:0">رصد غياب اليوم يكون بالحصة من تطبيق الغياب عن بعد.</p>
+        <a class="btn" href="${REMOTE_URL}" style="display:inline-block;text-decoration:none">فتح تطبيق الغياب عن بعد</a>
+        ${ROLE==='admin'?`<p style="margin-top:16px"><button class="btn ghost" onclick="show('admin');loadAdmin()">العودة للوحة الغياب</button></p>`:''}</div>`;
+      return;
+    }
     const done = Object.fromEntries(subs.map(s=>[s.class,s.absent_count]));
     let html='';
     GRADES.forEach(g=>{
@@ -874,6 +880,7 @@ function printClass(r){
 const REMOTE_URL='https://khayatschoole-dev.github.io/remote-attendance/';
 const R_PERIODS=7, R_FULLDAY=Math.floor(R_PERIODS/2)+1;   // أكثر من نصف الحصص = 4 من 7
 let rClass='*';
+function isFixedRemote(d){ const w=new Date(d+'T12:00:00Z').getUTCDay(); return w===3||w===4 }   // الأربعاء والخميس
 function addDays(d,n){ const x=new Date(d+'T12:00:00Z'); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10) }
 function weekOf(d){ const dow=new Date(d+'T12:00:00Z').getUTCDay(); const s=addDays(d,-dow); return [s,addDays(s,4)] }
 async function renderRemote(){
@@ -889,7 +896,7 @@ async function renderRemote(){
       getAll(`remote_sessions?vdate=gte.${ws}&vdate=lte.${we}&select=vdate,class,period`),
       api('remote_settings?key=eq.access_code&select=value,updated_by,updated_at')]);
   }catch(e){ $('#aBody').innerHTML=`<div class="empty">تعذّر التحميل: ${esc(e.message)}</div>`; return }
-  const isRemote=day.length>0;
+  const fixedRemote=isFixedRemote(d), isRemote=day.length>0 || fixedRemote;
   // today
   const sMap={}; sess.forEach(s=>sMap[s.class+'|'+s.period]=s);
   const todayAtt=wk.filter(a=>a.vdate===d);
@@ -904,7 +911,7 @@ async function renderRemote(){
   REMOTE_CACHE={d,ws,we,wList,wDays,fullToday};
   let h=`<div class="panel"><h2>${dayName(d)} ${hijri(d)}</h2>
     <div class="toolbar" style="margin:0"><span class="pill ${isRemote?'ok':'no'}" style="font-size:.9rem;padding:4px 12px">${isRemote?'يوم دراسة عن بعد — الرصد مفتوح للمعلمين':'ليس يوم دراسة عن بعد — الرصد مغلق'}</span>
-    <button class="btn sm ed ${isRemote?'ghost':''}" id="rToggle">${isRemote?'إلغاء يوم الدراسة عن بعد':'تحديده يوم دراسة عن بعد'}</button></div>
+    ${fixedRemote?'<span class="note">الأربعاء والخميس دراسة عن بعد دائماً</span>':`<button class="btn sm ed ${isRemote?'ghost':''}" id="rToggle">${isRemote?'إلغاء يوم الدراسة عن بعد':'تحديده يوم دراسة عن بعد'}</button>`}</div>
     <div class="linkbox" style="margin-top:12px"><span class="note">رابط المعلمين:</span><code>${REMOTE_URL}</code><button class="btn ghost sm" id="rCopy">نسخ الرابط</button></div>
     <div class="linkbox ed" style="margin-top:10px"><span class="note">رمز دخول المعلمين (مرة واحدة لكل جهاز):</span><code id="rCodeShow">${esc(codeRow[0]?.value||'—')}</code>
     <input class="t" id="rCodeNew" inputmode="numeric" placeholder="رمز جديد" style="max-width:130px;padding:7px"><button class="btn ghost sm" id="rCodeSave">تغيير الرمز</button></div>
@@ -939,7 +946,7 @@ async function renderRemote(){
     <div class="chips">${teachers.map(t=>`<span class="pill no" style="padding:5px 10px">${esc(t.name)} <a href="#" data-tdel="${t.id}" style="color:var(--red);text-decoration:none;margin-right:6px">✕</a></span>`).join('')||'<span class="note">لم تُضف أسماء بعد.</span>'}</div></div>`;
   $('#aBody').innerHTML=h;
   // bindings
-  $('#rToggle').onclick=async()=>{ if(!roGuard()) return; try{
+  if($('#rToggle')) $('#rToggle').onclick=async()=>{ if(!roGuard()) return; try{
       if(isRemote){ if(!confirm('إلغاء يوم الدراسة عن بعد؟ يُغلق الرصد للمعلمين، ويبقى ما رُصد محفوظاً.')) return; await api(`remote_days?vdate=eq.${d}`,{method:'DELETE'}) }
       else await api('remote_days',{method:'POST',body:{vdate:d,created_by:USER},prefer:'return=minimal'});
       renderRemote() }catch(e){ toast('تعذّر الحفظ: '+e.message) } };
