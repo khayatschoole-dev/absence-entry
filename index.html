@@ -424,7 +424,7 @@ async function openRoll(cls){
 }
 
 async function submitRoll(cls,d,studs){
-  if(!roGuard()) return;
+  if(ROLE!=='admin' && ROLE!=='teacher'){ toast('صلاحيتك اطلاع فقط'); return }
   const btn=$('#submitRoll'); btn.disabled=true; btn.textContent='جاري الإرسال…';
   const ids=[...document.querySelectorAll('#tRoll .row.abs')].map(r=>r.dataset.id);
   const vday=dayName(d);
