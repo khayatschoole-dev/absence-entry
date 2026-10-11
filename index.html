@@ -262,6 +262,7 @@ main{padding-top:40px}
       <button class="btn sm" id="printAllBtn">طباعة الكشوف الأسبوعية لجميع الفصول</button>
     </div>
     <nav class="tabs" role="tablist">
+      <button data-go="roll" class="ed" style="background:var(--green);color:#fff;border-color:var(--green)">✎ رصد الغياب</button>
       <button data-tab="today" class="on">إحصائية اليوم</button>
       <button data-tab="sheet">كشف الفصول</button>
       <button data-tab="msgs">إرسال لأولياء الأمور</button>
@@ -450,8 +451,9 @@ $('#toTeacher').onclick=()=>{ show('teacher'); openClasses() };
 function initAdmin(){
   $('#aDate').value=todayRiyadh();
   $('#aDate').onchange=loadAdmin; $('#refreshBtn').onclick=loadAdmin; $('#printBtn').onclick=printReport; $('#printAllBtn').onclick=()=>printSheets('*');
-  document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
-    TAB=b.dataset.tab; document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b)); render() });
+  document.querySelectorAll('.tabs [data-go]').forEach(b=>b.onclick=()=>{ if(!roGuard()) return; show('teacher'); openClasses() });
+  document.querySelectorAll('.tabs button[data-tab]').forEach(b=>b.onclick=()=>{
+    TAB=b.dataset.tab; document.querySelectorAll('.tabs button[data-tab]').forEach(x=>x.classList.toggle('on',x===b)); render() });
   loadAdmin();
   clearInterval(autoT); autoT=setInterval(()=>{ if((ROLE==='admin'||ROLE==='counselor') && !$('#admin').classList.contains('hide') && TAB==='today') loadAdmin(true) },45000);
 }
