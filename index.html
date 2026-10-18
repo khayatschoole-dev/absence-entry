@@ -218,6 +218,14 @@ main{padding-top:40px}
 .tuebox .seg{margin:0;border:0;padding:0;background:#eef3f2}
 .tuebox .seg button{padding:6px 14px;font-size:.88rem}
 .tuebox .seg button.on.rm{background:#2b6cb0}
+
+.seq{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:3px solid #1f9d55;box-shadow:0 -8px 24px rgba(0,0,0,.15);padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+.seq .in{max-width:560px;margin:0 auto}
+.seq .top{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:var(--ink)}
+.seq .bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:8px 0 12px}.seq .bar i{display:block;height:100%;background:#1f9d55;transition:width .3s}
+.seq .who{font-size:1.05rem;font-weight:700}.seq .who span{display:block;font-size:.85rem;font-weight:400;color:var(--muted)}
+.seq .go{width:100%;padding:16px;font-size:1.1rem;margin:12px 0 8px}
+.seq .row2{display:flex;gap:8px}.seq .row2 .btn{flex:1}
 </style>
 </head>
 <body>
@@ -559,6 +567,9 @@ function renderMsgs(){
     <div class="toolbar" style="margin:0"><button class="btn sm" id="csvBtn">تنزيل ملف المدار (CSV)</button>
     <button class="btn ghost sm" id="copyNums">نسخ الأرقام</button><button class="btn ghost sm ed" id="markSms">تم الإرسال عبر المدار</button></div></div>
     <div class="panel"><h2>واتساب — ${eff.length} غائب بدون عذر</h2>${nEx?`<p class="note">لا تظهر هنا حالات الغياب بعذر (${nEx}).</p>`:""}
+    ${(()=>{ const q=eff.filter(a=>a.guardian_mobile&&!a.wa_sent).length;
+       return q?`<button class="btn wa ed" id="seqStart" style="width:100%;margin:4px 0 10px;padding:13px">▶ الإرسال المتتالي — ${q} رسالة متبقية</button>`
+               :(eff.length?'<p class="sent" style="margin:4px 0 10px">✓ تم إرسال جميع رسائل الواتساب</p>':'') })()}
     <label class="note"><input type="checkbox" id="hideSent" ${hideSent?'checked':''}> إخفاء من تم إرسال رسالته</label>
     <div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>الجوال</th><th>غياب بدون عذر</th><th></th></tr>`;
   if(!list.length) h+=`<tr><td colspan="5" class="empty">${eff.length?'تم إرسال جميع الرسائل.':'لا يوجد غياب مسجّل لهذا اليوم.'}</td></tr>`;
@@ -571,6 +582,7 @@ function renderMsgs(){
   $('#tpl').oninput=e=>ls.set('abs_tpl',e.target.value);
   $('#tplReset').onclick=()=>{ ls.del('abs_tpl'); renderMsgs() };
   $('#hideSent').onchange=e=>{ hideSent=e.target.checked; renderMsgs() };
+  if($('#seqStart')) $('#seqStart').onclick=()=>{ if(!roGuard()) return; seqOpen(eff.filter(a=>a.guardian_mobile&&!a.wa_sent), $('#tpl').value, d) };
   document.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{
     const a=eff.find(x=>x.id==b.dataset.wa); const msg=fillMsg($('#tpl').value,a,d);
     window.open(`https://wa.me/${intlPhone(a.guardian_mobile)}?text=${encodeURIComponent(msg)}`,'_blank');
@@ -1061,6 +1073,39 @@ async function renderTue(){
     }catch(e){ toast('تعذّر الحفظ: '+e.message) }
   });
 }
+
+/* ===== Sequential WhatsApp sending: one big "next" button ===== */
+let SEQ=null;
+function seqOpen(queue,tpl,d){
+  if(!queue.length){ toast('لا توجد رسائل متبقية'); return }
+  SEQ={q:queue,i:0,sent:0,skipped:0,tpl,d};
+  let el=$('#seqBox'); if(!el){ el=document.createElement('div'); el.id='seqBox'; el.className='seq'; document.body.appendChild(el) }
+  seqDraw();
+}
+function seqDraw(){
+  const el=$('#seqBox'), s=SEQ, n=s.q.length;
+  if(s.i>=n){
+    el.innerHTML=`<div class="in"><div class="top">انتهى الإرسال المتتالي</div>
+      <p style="margin:10px 0">تم فتح <b>${s.sent}</b> رسالة${s.skipped?`، وتخطّي <b>${s.skipped}</b>`:''}.</p>
+      <button class="btn go" id="seqClose">إغلاق</button></div>`;
+    $('#seqClose').onclick=seqClose; return;
+  }
+  const a=s.q[s.i];
+  el.innerHTML=`<div class="in"><div class="top"><span>الإرسال المتتالي</span><span>${s.i+1} من ${n}</span></div>
+    <div class="bar"><i style="width:${s.i/n*100}%"></i></div>
+    <div class="who">${esc(a.student_name)}<span>${esc(a.class)} · ${esc(a.guardian_mobile)}</span></div>
+    <button class="btn wa go" id="seqGo">فتح واتساب وإرسال ←</button>
+    <div class="row2"><button class="btn ghost sm" id="seqSkip">تخطّي</button><button class="btn ghost sm" id="seqStop">إيقاف</button></div>
+    <p class="note" style="margin:8px 0 0">اضغط "إرسال" في واتساب، ثم ارجع هنا للرسالة التالية.</p></div>`;
+  $('#seqGo').onclick=()=>{
+    window.open(`https://wa.me/${intlPhone(a.guardian_mobile)}?text=${encodeURIComponent(fillMsg(s.tpl,a,s.d))}`,'_blank');
+    a.wa_sent=true; api(`absences?id=eq.${a.id}`,{method:'PATCH',body:{wa_sent:true},prefer:'return=minimal'}).catch(()=>{});
+    s.sent++; s.i++; seqDraw();
+  };
+  $('#seqSkip').onclick=()=>{ s.skipped++; s.i++; seqDraw() };
+  $('#seqStop').onclick=seqClose;
+}
+function seqClose(){ const el=$('#seqBox'); if(el) el.remove(); SEQ=null; if(TAB==='msgs') renderMsgs() }
 /* ================= PRINT REPORT ================= */
 function printReport(){
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
