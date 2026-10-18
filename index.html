@@ -612,6 +612,7 @@ function renderAlerts(){
   let h=`<div class="summary">${THRESHOLDS.map(v=>`<div><b>${cnt(v)}</b><span>${v===15?'15 يوماً فأكثر':`${v} أيام إلى ${[5,10,15][THRESHOLDS.indexOf(v)]-1}`}</span></div>`).join('')}
     <div class="r"><b>${fresh.length}</b><span>بلغوا حداً جديداً في هذا اليوم</span></div></div>
     <div class="chips"><button data-f="0" class="${!alertFilter?'on':''}">الكل (${TOTALS.length})</button>${THRESHOLDS.map(v=>`<button data-f="${v}" class="${alertFilter===v?'on':''}">${v}+</button>`).join('')}</div>
+    <div class="toolbar"><button class="btn sm" id="alPrint">🖨️ طباعة تقرير التنبيهات${alertFilter?` (${alertFilter}${alertFilter===15?" يوماً":" أيام"} فأكثر)`:""}</button></div>
     <div class="panel"><h2>نص رسالة التنبيه</h2><textarea class="t" id="atpl" rows="3">${esc(tpl)}</textarea><p class="note">المتغيرات: {الاسم} {الفصل} {العدد}</p></div>
     <div class="panel"><div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>بدون عذر</th><th>بعذر</th><th>آخر غياب</th><th></th></tr>`;
   if(!list.length) h+=`<tr><td colspan="6" class="empty">لا يوجد طلاب في هذه الفئة.</td></tr>`;
@@ -622,6 +623,7 @@ function renderAlerts(){
   h+=`</table></div></div><p class="note">التنبيهات تُحسب على الغياب بدون عذر فقط، من بداية استخدام التطبيق، ولا تشمل الأيام التي سُجّل فيها الطالب متأخراً.</p>`;
   $('#aBody').innerHTML=h;
   document.querySelectorAll('.chips [data-f]').forEach(b=>b.onclick=()=>{ alertFilter=+b.dataset.f; renderAlerts() });
+  $('#alPrint').onclick=printAlerts;
   $('#atpl').oninput=e=>ls.set('abs_alert_tpl',e.target.value);
   document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{
     const t=TOTALS.find(x=>x.student_id===b.dataset.al);
@@ -1119,6 +1121,31 @@ function openWA(phone,msg){
     document.removeEventListener('visibilitychange',onVis); window.removeEventListener('blur',onHide);
     if(!left && !document.hidden){ window.open(`https://wa.me/${num}?text=${text}`,'_blank') }
   },1800);
+}
+
+/* ===== Print: accumulation alerts report ===== */
+function printAlerts(){
+  if(!DATA||!TOTALS){ toast('انتظر تحميل البيانات'); return }
+  const d=DATA.d;
+  const list=TOTALS.filter(t=>!alertFilter || tier(t.unexcused_days)===alertFilter);
+  const cnt=v=>TOTALS.filter(t=>tier(t.unexcused_days)===v).length;
+  const lbl=v=>v===15?'15 يوماً فأكثر':`من ${v} إلى ${[5,10,15][THRESHOLDS.indexOf(v)]-1} أيام`;
+  let h=`${rptHead('تقرير تنبيهات تراكم الغياب'+(alertFilter?' — '+lbl(alertFilter):''), d)}
+    <table><tr>${THRESHOLDS.map(v=>`<th>${lbl(v)}</th>`).join('')}<th>الإجمالي</th></tr>
+    <tr>${THRESHOLDS.map(v=>`<td>${cnt(v)}</td>`).join('')}<td>${TOTALS.length}</td></tr></table>
+    <p>يُحتسب الغياب بدون عذر منذ بداية الرصد، ولا يشمل الأيام التي سُجّل فيها الطالب متأخراً.</p>`;
+  if(!list.length) h+='<p>لا يوجد طلاب في هذه الفئة.</p>';
+  else {
+    const groups = alertFilter ? [alertFilter] : [...THRESHOLDS].reverse();
+    let n=0;
+    h+=`<table class="abl"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:32mm">الفصل</th><th style="width:18mm">بدون عذر</th><th style="width:14mm">بعذر</th><th style="width:24mm">آخر غياب</th><th style="width:26mm">جوال ولي الأمر</th></tr>`;
+    groups.forEach(g=>{ const rows=list.filter(t=>tier(t.unexcused_days)===g); if(!rows.length) return;
+      h+=`<tr class="grp"><td colspan="7">${lbl(g)} <span>— عدد الطلاب: ${rows.length}</span></td></tr>`;
+      rows.forEach(t=>{ n++; h+=`<tr><td>${n}</td><td>${esc(t.student_name)}</td><td>${esc(t.class)}</td><td>${t.unexcused_days}</td><td>${t.excused_days||''}</td><td>${esc(t.last_unexcused_date||'')}</td><td>${esc(t.guardian_mobile||'')}</td></tr>` }) });
+    h+='</table>';
+  }
+  h+=`<div class="sign"><span>المرشد الطلابي: ......................</span><span>وكيل شؤون الطلاب: ......................</span><span>مدير المدرسة: ......................</span></div>`;
+  doPrint(pgWrap(h));
 }
 /* ================= PRINT REPORT ================= */
 function printReport(){
