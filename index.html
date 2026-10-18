@@ -607,13 +607,13 @@ function renderMsgs(){
 }
 function renderAlerts(){
   const {d}=DATA; const tpl=ls.get('abs_alert_tpl',DEFAULT_ALERT);
-  const list=TOTALS.filter(t=>!alertFilter || tier(t.unexcused_days)===alertFilter);
+  const list=alertList();
   const cnt=v=>TOTALS.filter(t=>tier(t.unexcused_days)===v).length;
   const fresh=TOTALS.filter(t=>t.last_unexcused_date===d && THRESHOLDS.includes(t.unexcused_days));
   let h=`<div class="summary">${THRESHOLDS.map(v=>`<div><b>${cnt(v)}</b><span>${v===15?'15 يوماً فأكثر':`${v} أيام إلى ${[5,10,15][THRESHOLDS.indexOf(v)]-1}`}</span></div>`).join('')}
     <div class="r"><b>${fresh.length}</b><span>بلغوا حداً جديداً في هذا اليوم</span></div></div>
-    <div class="chips"><button data-f="0" class="${!alertFilter?'on':''}">الكل (${TOTALS.length})</button>${THRESHOLDS.map(v=>`<button data-f="${v}" class="${alertFilter===v?'on':''}">${v}+</button>`).join('')}</div>
-    <div class="toolbar"><button class="btn sm" id="alPrint">🖨️ طباعة تقرير التنبيهات${alertFilter?` (${alertFilter}${alertFilter===15?" يوماً":" أيام"} فأكثر)`:""}</button></div>
+    <div class="chips"><button data-f="0" class="${!alertFilter?'on':''}">الكل (${TOTALS.length})</button>${THRESHOLDS.map(v=>`<button data-f="${v}" class="${alertFilter===v?'on':''}">${v}+</button>`).join('')}<button data-f="-1" class="${alertFilter===-1?'on':''}" style="${alertFilter===-1?'':'border-color:var(--red);color:var(--red)'}">الجدد فقط (${TOTALS.filter(isFresh).length})</button></div>
+    <div class="toolbar"><button class="btn sm" id="alPrint">🖨️ طباعة تقرير التنبيهات${alertFilter===-1?' (الجدد فقط)':alertFilter?` (${alertFilter}${alertFilter===15?" يوماً":" أيام"} فأكثر)`:""}</button></div>
     <div class="panel"><h2>نص رسالة التنبيه</h2><textarea class="t" id="atpl" rows="3">${esc(tpl)}</textarea><p class="note">المتغيرات: {الاسم} {الفصل} {العدد}</p></div>
     <div class="panel"><div class="tbl-wrap"><table><tr><th>الطالب</th><th>الفصل</th><th>بدون عذر</th><th>بعذر</th><th>آخر غياب</th><th></th></tr>`;
   if(!list.length) h+=`<tr><td colspan="6" class="empty">لا يوجد طلاب في هذه الفئة.</td></tr>`;
@@ -1128,7 +1128,7 @@ function openWA(phone,msg){
 async function printAlerts(){
   if(!DATA||!TOTALS){ toast('انتظر تحميل البيانات'); return }
   const d=DATA.d;
-  const list=TOTALS.filter(t=>!alertFilter || tier(t.unexcused_days)===alertFilter);
+  const list=alertList();
   const DAYS={};
   if(list.length){
     toast('جاري تجهيز التقرير…');
@@ -1144,13 +1144,13 @@ async function printAlerts(){
   const dayList=sid=>(DAYS[sid]||[]).map(a=>`${dayName(a.vdate)} ${hm(a.vdate)}${a.excused?' (بعذر)':''}`).join('، ');
   const cnt=v=>TOTALS.filter(t=>tier(t.unexcused_days)===v).length;
   const lbl=v=>v===15?'15 يوماً فأكثر':`من ${v} إلى ${[5,10,15][THRESHOLDS.indexOf(v)]-1} أيام`;
-  let h=`${rptHead('تقرير تنبيهات تراكم الغياب'+(alertFilter?' — '+lbl(alertFilter):''), d)}
+  let h=`${rptHead('تقرير تنبيهات تراكم الغياب'+(alertFilter===-1?' — الطلاب الذين بلغوا حداً جديداً':alertFilter?' — '+lbl(alertFilter):''), d)}${alertFilter===-1?`<p style="text-align:center;margin-top:-2mm">بلغوا الحد يوم ${dayName(d)} ${hijri(d)}</p>`:''}
     <table><tr>${THRESHOLDS.map(v=>`<th>${lbl(v)}</th>`).join('')}<th>الإجمالي</th></tr>
     <tr>${THRESHOLDS.map(v=>`<td>${cnt(v)}</td>`).join('')}<td>${TOTALS.length}</td></tr></table>
     <p>يُحتسب الغياب بدون عذر منذ بداية الرصد، ولا يشمل الأيام التي سُجّل فيها الطالب متأخراً.</p>`;
   if(!list.length) h+='<p>لا يوجد طلاب في هذه الفئة.</p>';
   else {
-    const groups = alertFilter ? [alertFilter] : [...THRESHOLDS].reverse();
+    const groups = alertFilter>0 ? [alertFilter] : [...THRESHOLDS].reverse();
     let n=0;
     h+=`<table class="abl"><tr><th style="width:8mm">م</th><th style="width:48mm">اسم الطالب</th><th style="width:31mm">الفصل</th><th style="width:16mm">بدون عذر</th><th style="width:12mm">بعذر</th><th>أيام الغياب</th></tr>`;
     groups.forEach(g=>{ const rows=list.filter(t=>tier(t.unexcused_days)===g); if(!rows.length) return;
@@ -1161,6 +1161,10 @@ async function printAlerts(){
   h+=`<div class="sign"><span>المرشد الطلابي: ......................</span><span>وكيل شؤون الطلاب: ......................</span><span>مدير المدرسة: ......................</span></div>`;
   doPrint(pgWrap(h));
 }
+
+/* alert filter: 0 = all, 3/5/10/15 = tier, -1 = reached a new threshold on the selected date */
+function isFresh(t){ return t.last_unexcused_date===DATA.d && THRESHOLDS.includes(t.unexcused_days) }
+function alertList(){ return TOTALS.filter(t=> alertFilter===-1 ? isFresh(t) : (!alertFilter || tier(t.unexcused_days)===alertFilter)) }
 /* ================= PRINT REPORT ================= */
 function printReport(){
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
