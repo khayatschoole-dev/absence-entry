@@ -206,7 +206,7 @@ main{padding-top:40px}
   #report table.wkt th.wk small{font-weight:400;font-size:8pt}
   #report table.wkt td.nm{font-size:10pt}
   #report table.wkt td.ab{font-weight:700;background:#e6eeec}
-  #report table.wkt td.ex{font-weight:700}
+  #report table.wkt td.ex{font-weight:700;background:#dfe7f3}
   #report table.wkt td.lt{font-size:8.5pt}
   #report table.wkt td.nr{background:#f2f2f2}
   #report table.wkt td,#report table.wkt th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -227,6 +227,10 @@ main{padding-top:40px}
 .seq .who{font-size:1.05rem;font-weight:700}.seq .who span{display:block;font-size:.85rem;font-weight:400;color:var(--muted)}
 .seq .go{width:100%;padding:16px;font-size:1.1rem;margin:12px 0 8px}
 .seq .row2{display:flex;gap:8px}.seq .row2 .btn{flex:1}
+
+@media print{
+  #report tr.exr td{background:#dfe7f3;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -714,7 +718,7 @@ async function printSheets(which){
         ${days.map(x=>{ const rem=RD.has(x), ok=rem?RS.has(c+'|'+x):S.has(c+'|'+x);
           return `<th class="wk">${dayName(x)}<br><small>${dShort(x)}${rem?' — عن بعد':''}</small>${ok?'':'<br><small>لم يُرصد</small>'}</th>` }).join('')}<th class="wk" style="width:13mm">المجموع</th></tr>
       ${rows}</table>
-      <div class="legend">غائب = غياب بدون عذر · بعذر = غياب بعذر · متأخر = حضر متأخراً · الخانة المظللة = يوم لم يُرصد فيه الفصل${days.some(x=>RD.has(x))?` · في يوم الدراسة عن بعد يُحتسب الطالب غائباً إذا غاب ${R_FULLDAY} حصص فأكثر من ${R_PERIODS}`:''}</div>
+      <div class="legend">غائب = غياب بدون عذر (تظليل أخضر) · بعذر = غياب بعذر (تظليل أزرق) · متأخر = حضر متأخراً · الخانة الرمادية = يوم لم يُرصد فيه الفصل${days.some(x=>RD.has(x))?` · في يوم الدراسة عن بعد يُحتسب الطالب غائباً إذا غاب ${R_FULLDAY} حصص فأكثر من ${R_PERIODS}`:''}</div>
       <div class="sign"><span>رائد الفصل: ......................</span><span>وكيل شؤون الطلاب: ......................</span></div></section>`;
   });
   doPrint(h);
@@ -884,7 +888,7 @@ function printStudent(r){
     <table><tr><th>غياب بدون عذر</th><th>غياب بعذر</th><th>مجموع أيام الغياب</th><th>مرات التأخر</th></tr>
     <tr><td>${abs.length-ex}</td><td>${ex}</td><td>${abs.length}</td><td>${late.length}</td></tr></table>
     <h3>أيام الغياب</h3>${abs.length?`<table><tr><th style="width:10mm">م</th><th>اليوم</th><th>التاريخ الهجري</th><th>الميلادي</th><th>الحالة</th></tr>
-    ${[...abs].reverse().map((a,i)=>`<tr><td>${i+1}</td><td>${dayName(a.vdate)}</td><td>${hijri(a.vdate)}</td><td>${a.vdate}</td><td>${a.excused?'بعذر'+(a.excuse_note?' — '+esc(a.excuse_note):''):'بدون عذر'}</td></tr>`).join('')}</table>`:'<p>لا يوجد غياب مسجّل.</p>'}
+    ${[...abs].reverse().map((a,i)=>`<tr class="${a.excused?'exr':''}"><td>${i+1}</td><td>${dayName(a.vdate)}</td><td>${hijri(a.vdate)}</td><td>${a.vdate}</td><td>${a.excused?'بعذر'+(a.excuse_note?' — '+esc(a.excuse_note):''):'بدون عذر'}</td></tr>`).join('')}</table>`:'<p>لا يوجد غياب مسجّل.</p>'}
     <div class="sign"><span>وكيل شؤون الطلاب: ......................</span><span>مدير المدرسة: ......................</span></div>`;
   doPrint(pgWrap(h));
 }
@@ -1181,7 +1185,7 @@ function printReport(){
     h+=`<table class="abl"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:24mm">الحالة</th><th style="width:26mm">غياب بدون عذر<br><small>منذ بداية الرصد</small></th></tr>`;
     R.classes.forEach(c=>{ const a=eff.filter(x=>x.class===c); if(!a.length) return;
       h+=`<tr class="grp"><td colspan="4">${c} <span>— عدد الغائبين: ${a.length}</span></td></tr>`;
-      a.forEach(x=>{ n++; h+=`<tr><td>${n}</td><td>${esc(x.student_name)}</td><td>${x.excused?'بعذر':'غائب'}</td><td>${DATA.totMap[x.student_id]||''}</td></tr>` }) });
+      a.forEach(x=>{ n++; h+=`<tr class="${x.excused?'exr':''}"><td>${n}</td><td>${esc(x.student_name)}</td><td>${x.excused?'بعذر':'غائب'}</td><td>${DATA.totMap[x.student_id]||''}</td></tr>` }) });
     h+=`</table>`;
   } else h+=`<p>لا يوجد غياب مسجّل.</p>`;
   if(fresh.length) h+=`<h3>طلاب بلغوا حداً جديداً اليوم</h3><table><tr><th>الطالب</th><th>الفصل</th><th>غياب بدون عذر</th></tr>${fresh.map(t=>`<tr><td>${esc(t.student_name)}</td><td>${esc(t.class)}</td><td>${t.unexcused_days}</td></tr>`).join('')}</table>`;
