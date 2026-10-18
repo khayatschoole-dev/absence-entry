@@ -585,7 +585,7 @@ function renderMsgs(){
   if($('#seqStart')) $('#seqStart').onclick=()=>{ if(!roGuard()) return; seqOpen(eff.filter(a=>a.guardian_mobile&&!a.wa_sent), $('#tpl').value, d) };
   document.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{
     const a=eff.find(x=>x.id==b.dataset.wa); const msg=fillMsg($('#tpl').value,a,d);
-    window.open(`https://wa.me/${intlPhone(a.guardian_mobile)}?text=${encodeURIComponent(msg)}`,'_blank');
+    openWA(a.guardian_mobile, msg);
     a.wa_sent=true; api(`absences?id=eq.${a.id}`,{method:'PATCH',body:{wa_sent:true},prefer:'return=minimal'}).catch(()=>{});
     setTimeout(renderMsgs,400);
   });
@@ -625,7 +625,7 @@ function renderAlerts(){
   $('#atpl').oninput=e=>ls.set('abs_alert_tpl',e.target.value);
   document.querySelectorAll('[data-al]').forEach(b=>b.onclick=()=>{
     const t=TOTALS.find(x=>x.student_id===b.dataset.al);
-    window.open(`https://wa.me/${intlPhone(t.guardian_mobile)}?text=${encodeURIComponent(fillMsg($('#atpl').value,t,d,t.unexcused_days))}`,'_blank') });
+    openWA(t.guardian_mobile, fillMsg($('#atpl').value,t,d,t.unexcused_days)) });
 }
 
 function greet(){ const hr=+new Date().toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'Asia/Riyadh'}); return hr<12?'صباح الخير':'مساء الخير' }
@@ -979,10 +979,10 @@ async function renderRemote(){
   $('#rPrint').onclick=printRemoteWeek;
   document.querySelectorAll('[data-rwa]').forEach(b=>b.onclick=()=>{ const o=fullToday.find(x=>x.row.student_id===b.dataset.rwa);
     const msg=`ولي أمر الطالب ${o.row.student_name}\nنفيدكم بغياب ابنكم عن ${o.a} حصص من حصص الدراسة عن بعد اليوم ${dayName(d)} ${hijri(d)}.\n${SCHOOL}`;
-    window.open(`https://wa.me/${intlPhone(o.row.guardian_mobile)}?text=${encodeURIComponent(msg)}`,'_blank') });
+    openWA(o.row.guardian_mobile, msg) });
   document.querySelectorAll('[data-rwk]').forEach(b=>b.onclick=()=>{ const o=perStu[b.dataset.rwk];
     const msg=`ولي أمر الطالب ${o.row.student_name}\nنفيدكم بأن ابنكم غاب هذا الأسبوع عن ${o.a} حصة في الدراسة عن بعد${o.full?`، منها ${o.full} ${o.full>1?'أيام':'يوم'} كامل`:''}.\nنأمل متابعته.\n${SCHOOL}`;
-    window.open(`https://wa.me/${intlPhone(o.row.guardian_mobile)}?text=${encodeURIComponent(msg)}`,'_blank') });
+    openWA(o.row.guardian_mobile, msg) });
   $('#tAdd').onclick=async()=>{ if(!roGuard()) return; const existing=new Set([...document.querySelectorAll('[data-tdel]')].map(x=>x.parentElement.firstChild.nodeValue.trim()));
     const names=[...new Set($('#tNames').value.split(/[\n،,]+/).map(s=>s.replace(/[✕×xX]+\s*$/,'').replace(/\s+/g,' ').trim()).filter(s=>s.length>1))].filter(n=>!existing.has(n));
     if(!names.length){ toast('كل الأسماء موجودة مسبقاً في القائمة'); return }
@@ -1098,7 +1098,7 @@ function seqDraw(){
     <div class="row2"><button class="btn ghost sm" id="seqSkip">تخطّي</button><button class="btn ghost sm" id="seqStop">إيقاف</button></div>
     <p class="note" style="margin:8px 0 0">اضغط "إرسال" في واتساب، ثم ارجع هنا للرسالة التالية.</p></div>`;
   $('#seqGo').onclick=()=>{
-    window.open(`https://wa.me/${intlPhone(a.guardian_mobile)}?text=${encodeURIComponent(fillMsg(s.tpl,a,s.d))}`,'_blank');
+    openWA(a.guardian_mobile, fillMsg(s.tpl,a,s.d));
     a.wa_sent=true; api(`absences?id=eq.${a.id}`,{method:'PATCH',body:{wa_sent:true},prefer:'return=minimal'}).catch(()=>{});
     s.sent++; s.i++; seqDraw();
   };
@@ -1106,6 +1106,20 @@ function seqDraw(){
   $('#seqStop').onclick=seqClose;
 }
 function seqClose(){ const el=$('#seqBox'); if(el) el.remove(); SEQ=null; if(TAB==='msgs') renderMsgs() }
+
+/* ===== Open the installed WhatsApp app directly (falls back to wa.me if the app isn't installed) ===== */
+function openWA(phone,msg){
+  const num=intlPhone(phone), text=encodeURIComponent(msg);
+  let left=false; const onHide=()=>{ left=true };
+  const onVis=()=>{ if(document.hidden) left=true };
+  document.addEventListener('visibilitychange',onVis);
+  window.addEventListener('blur',onHide);
+  location.href=`whatsapp://send?phone=${num}&text=${text}`;
+  setTimeout(()=>{
+    document.removeEventListener('visibilitychange',onVis); window.removeEventListener('blur',onHide);
+    if(!left && !document.hidden){ window.open(`https://wa.me/${num}?text=${text}`,'_blank') }
+  },1800);
+}
 /* ================= PRINT REPORT ================= */
 function printReport(){
   if(!DATA){ toast('انتظر تحميل البيانات'); return }
