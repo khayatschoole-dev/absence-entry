@@ -133,6 +133,7 @@ td.exc{color:#2b6cb0;font-weight:700}
   #report table.abl tr.grp td{background:#e6eeec;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact;break-after:avoid}
   #report table.abl tr.grp span{font-weight:400}
   #report table.abl tr{break-inside:avoid}
+  #report table.abl td.days{font-size:8.5pt;line-height:1.35;white-space:normal}
   #report .cls{break-inside:avoid}
 }
 
@@ -1124,10 +1125,23 @@ function openWA(phone,msg){
 }
 
 /* ===== Print: accumulation alerts report ===== */
-function printAlerts(){
+async function printAlerts(){
   if(!DATA||!TOTALS){ toast('انتظر تحميل البيانات'); return }
   const d=DATA.d;
   const list=TOTALS.filter(t=>!alertFilter || tier(t.unexcused_days)===alertFilter);
+  const DAYS={};
+  if(list.length){
+    toast('جاري تجهيز التقرير…');
+    try{
+      const ids=list.map(t=>'"'+t.student_id+'"');
+      for(let i=0;i<ids.length;i+=150){
+        const part=await getAll(`absences_effective?student_id=in.(${ids.slice(i,i+150).join(',')})&select=student_id,vdate,excused&order=vdate`);
+        part.forEach(a=>(DAYS[a.student_id] ||= []).push(a));
+      }
+    }catch(e){ toast('تعذّر تحميل أيام الغياب: '+e.message); return }
+  }
+  const hm=x=>{ try{ return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn',{day:'numeric',month:'numeric'}).format(new Date(x+'T12:00:00')) }catch(e){ return x } };
+  const dayList=sid=>(DAYS[sid]||[]).map(a=>`${dayName(a.vdate)} ${hm(a.vdate)}${a.excused?' (بعذر)':''}`).join('، ');
   const cnt=v=>TOTALS.filter(t=>tier(t.unexcused_days)===v).length;
   const lbl=v=>v===15?'15 يوماً فأكثر':`من ${v} إلى ${[5,10,15][THRESHOLDS.indexOf(v)]-1} أيام`;
   let h=`${rptHead('تقرير تنبيهات تراكم الغياب'+(alertFilter?' — '+lbl(alertFilter):''), d)}
@@ -1138,10 +1152,10 @@ function printAlerts(){
   else {
     const groups = alertFilter ? [alertFilter] : [...THRESHOLDS].reverse();
     let n=0;
-    h+=`<table class="abl"><tr><th style="width:9mm">م</th><th>اسم الطالب</th><th style="width:32mm">الفصل</th><th style="width:18mm">بدون عذر</th><th style="width:14mm">بعذر</th><th style="width:24mm">آخر غياب</th><th style="width:26mm">جوال ولي الأمر</th></tr>`;
+    h+=`<table class="abl"><tr><th style="width:8mm">م</th><th style="width:48mm">اسم الطالب</th><th style="width:31mm">الفصل</th><th style="width:16mm">بدون عذر</th><th style="width:12mm">بعذر</th><th>أيام الغياب</th></tr>`;
     groups.forEach(g=>{ const rows=list.filter(t=>tier(t.unexcused_days)===g); if(!rows.length) return;
-      h+=`<tr class="grp"><td colspan="7">${lbl(g)} <span>— عدد الطلاب: ${rows.length}</span></td></tr>`;
-      rows.forEach(t=>{ n++; h+=`<tr><td>${n}</td><td>${esc(t.student_name)}</td><td>${esc(t.class)}</td><td>${t.unexcused_days}</td><td>${t.excused_days||''}</td><td>${esc(t.last_unexcused_date||'')}</td><td>${esc(t.guardian_mobile||'')}</td></tr>` }) });
+      h+=`<tr class="grp"><td colspan="6">${lbl(g)} <span>— عدد الطلاب: ${rows.length}</span></td></tr>`;
+      rows.forEach(t=>{ n++; h+=`<tr><td>${n}</td><td>${esc(t.student_name)}</td><td style="white-space:nowrap">${esc(t.class)}</td><td>${t.unexcused_days}</td><td>${t.excused_days||''}</td><td class="days">${dayList(t.student_id)}</td></tr>` }) });
     h+='</table>';
   }
   h+=`<div class="sign"><span>المرشد الطلابي: ......................</span><span>وكيل شؤون الطلاب: ......................</span><span>مدير المدرسة: ......................</span></div>`;
